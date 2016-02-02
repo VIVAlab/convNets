@@ -1,0 +1,4 @@
+for i=1,45 do
+  os.execute("cd ~/FaceDetection/dataset/data/cropped/"..i)
+  os.execute("mogrify -type TrueColor -colorspace RGB *.png") 	
+end
