@@ -1,0 +1,66 @@
+require 'torch'   -- torch
+require 'image'   -- to visualize the dataset
+require 'nn'      -- provides all sorts of trainable modules/layers
+require 'Flip'
+
+print('Model')
+torch.setdefaulttensortype('torch.FloatTensor')
+
+if  (opt.load ~= "") then
+    model = torch.load(opt.load)
+    print(sys.COLORS.blue .. '**Pre-trained model loaded**') 
+else	
+model = nn.Sequential()
+c = nn.ConcatTable()
+P1 = nn.Sequential()
+P2 = nn.Sequential()
+
+P1:add(nn.Narrow(4,1,12))
+P1:add(nn.SpatialConvolutionMM(1,16,3,3,1,1)) --I(1x12x12)->O(16x10x10)
+P1:add(nn.Dropout())
+P1:add(nn.SpatialMaxPooling(3,3,2,2,1,1)) --O(16x5x5)
+P1:add(nn.ReLU())
+P1:add(nn.SpatialConvolutionMM(16,16,5,5,1,1))
+P1:add(nn.Dropout())
+P1:add(nn.ReLU())
+P1:add(nn.reshape(16))
+
+P2:add(nn.Narrow(4,13,12))--P2:add(nn.Flip(3)) --xdimension flip.  dim 1 is batch dimension, dim 2 is channel dim or feature map dim.
+P2:add(nn.SpatialConvolutionMM(1,16,3,3,1,1)) --I(1x12x12)->O(16x10x10)
+P2:add(nn.Dropout())
+P2:add(nn.SpatialMaxPooling(3,3,2,2,1,1)) --O(16x5x5)
+P2:add(nn.ReLU())
+P2:add(nn.SpatialConvolutionMM(16,16,5,5,1,1))
+P2:add(nn.Dropout())
+P2:add(nn.ReLU())
+P2:add(nn.reshape(16))
+
+c:add(P1)
+c:add(P2)
+model:add(c)
+
+model:add(nn.JoinTable(2))
+model:add(nn.Dropout())
+model:add(nn.Linear(16+16,2))
+model:add(nn.LogSoftMax())
+
+end
+
+
+-- Loss: NLL
+loss = nn.ClassNLLCriterion()
+----------------------------------------------------------------------
+print(sys.COLORS.red ..  '==> here is the CNN:')
+print(model)
+
+if opt.type == 'cuda' then
+   model:cuda()
+   loss:cuda()
+end
+
+-- return package:
+return {
+   model = model,
+   loss = loss,
+}
+

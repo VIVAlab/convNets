@@ -1,0 +1,2 @@
+run errorplot.m and choose which model gives best validation set error
+In this case it's a dropout model with flipping faces with face augmentation
