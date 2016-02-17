@@ -61,11 +61,10 @@ function joinPOSNEGseparateTrainTest(imlistPOS,POSno,imlistNEG,NEGno)
   return POStrainlist, nPOStrain, NEGtrainlist, nNEGtrain, testList ,nNEGtest , nPOStest  
 end
 
-POSadresses={'/home/jblan016/FaceDetection/Cascade/dataset/train/aflw/','/home/jblan016/FaceDetection/Cascade/dataset/train/faces/','/home/jblan016/FaceDetection/Cascade/dataset/train/c_faces/','/home/jblan016/FaceDetection/Cascade/dataset/test/faces/'}--,'/home/jblan016/FaceDetection/Cascade/dataset/train/faces/','/home/jblan016/FaceDetection/Cascade/dataset/train/c_faces/'}--'/home/jblan016/FaceDetection/Cascade/dataset/train/faces/','/home/jblan016/FaceDetection/Cascade/dataset/train/c_faces/'
---testadresslist={'/home/jblan016/FaceDetection/Cascade/dataset/test/c_faces/'}--,'/home/jblan016/FaceDetection/Cascade/dataset/test/faces/'
---negtest={'/home/jblan016/FaceDetection/Cascade/dataset/test/nonfaces/'}--'/home/jblan016/FaceDetection/Cascade/dataset/test/nonfaces/',
-NEGadresses={'/home/jblan016/FaceDetection/Cascade/BgGenerator/NegativeData0Full/'}--,'/home/jblan016/FaceDetection/Cascade/BgGenerator/NegativeData0Full/'
---negtrain={'/home/jblan016/FaceDetection/Cascade/BgGenerator/24NetPatches_negatives/','/home/jblan016/FaceDetection/Cascade/BgGenerator/AFLW_FACELESS_PATCHES/'}
+local config = require('../config')
+POSadresses= config.positiveData
+NEGadresses= config.negativeData
+
 imageslistPOS,FaceNo = loadDataFilesPOS(POSadresses) --Positive Train Data Load
 imageslistNEG,BckgNo = loadDataFilesNEG(NEGadresses) --Positive Train Data Load
 POStrainlist, FaceNotrain, NEGtrainlist ,BckgNotrain ,testList ,BckgNotest ,FaceNotest = joinPOSNEGseparateTrainTest(imageslistPOS,FaceNo,imageslistNEG,BckgNo)

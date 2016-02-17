@@ -52,11 +52,13 @@ function loadDataFilesTEST(face_dir,nonface_dir)
 	end
     return t,nFaces,i
 end
-POStrainadresses={'/home/jblan016/FaceDetection/Cascade/dataset/train/aflw/'}--
-testadresslist={'/home/jblan016/FaceDetection/Cascade/dataset/test/faces/'}--{'/home/jblan016/FaceDetection/Cascade/dataset/test/c_faces/'}
-negtest={'/home/jblan016/FaceDetection/Cascade/dataset/test/nonfaces/'}
-negtrain={'/home/jblan016/FaceDetection/Cascade/BgGenerator/NegativeData0Full/'}--}--'/home/jblan016/FaceDetection/Cascade/BgGenerator/AFLW_FACELESS_PATCHES/'
---trainadresslist={'/home/jblan016/FaceDetection/dataset/data/cropped/1/','/home/jblan016/FaceDetection/dataset/data/cropped/19/','/home/jblan016/FaceDetection/dataset/data/cropped/37/'}
+
+local config = require('../config')
+POStrainadresses = config.positiveTrain
+testadresslist = config.positiveTest
+negtest = config.negativeTest
+negtrain = config.generatedNegativeData
+
 imageslistPOS,FaceNo = loadDataFilesPOS(POStrainadresses) --Positive Train Data Load
 imageslistNEG,BckgNo = loadDataFilesNEG(negtrain) --Positive Train Data Load
 imageslistt,lt,teSize = loadDataFilesTEST(testadresslist,negtest) -- Test Data Load
