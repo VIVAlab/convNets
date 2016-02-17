@@ -24,7 +24,6 @@ local t = require 'model'
 local model = t.model
 local fwmodel = t.model
 local loss = t.loss
-local std = torch.load('results/std.dat')
 local desImaX=12
 local desImaY=12
 ----------------------------------------------------------------------
@@ -199,7 +198,7 @@ local function train(trainDataPOS,trainDataNEG)   ----------------------========
          Lpatch=torch.round(torch.rand(1)[1]*(L-Lmin  ))+Lmin
          di    =torch.floor(torch.rand(1)[1]*(L-Lpatch))+1
          dj    =torch.floor(torch.rand(1)[1]*(L-Lpatch))+1
-         xPOS[idx] = image.scale(((trainDataPOS.data[shufflePOS[i]]:clone()):narrow(2,di,Lpatch)):narrow(3,dj,Lpatch),desImaX,desImaY)
+         xPOS[idx] = trainDataPOS.data[shufflePOS[i]]
          ytPOS[idx] = trainDataPOS.labels[shufflePOS[i]]
          idx = idx + 1
       end

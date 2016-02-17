@@ -87,7 +87,7 @@ local aflwY=64
 
 if (duplicfliplrTrain=='false') then
 	trainDataPOS = {
-	      data = torch.Tensor(FaceNotrain, ivch, aflwX, aflwY),
+	      data = torch.Tensor(FaceNotrain, ivch, desImaX, desImaY),
 	      labels = torch.Tensor(FaceNotrain),
 	      size = function() return FaceNotrain end
 	   }
@@ -101,10 +101,10 @@ if (duplicfliplrTrain=='false') then
 			local im =  image.load(filename):float()
 
 			if im:size(1)==3 then
-		--im =  image.scale(im,desImaX,desImaY)
+		im =  image.scale(im,desImaX,desImaY)
 		im=image.rgb2y(im)
 		elseif im:size(1)==1 then
-		--im =  image.scale(im,desImaX,desImaY)
+		im =  image.scale(im,desImaX,desImaY)
 		end
 		trainDataPOS.data[j] = im
 		trainDataPOS.labels[j] = labelFace;
@@ -124,7 +124,7 @@ if (duplicfliplrTrain=='false') then
 
   elseif  (duplicfliplrTrain=='true') then
 	trainDataPOS = {
-	      data = torch.Tensor(2*FaceNotrain, ivch, aflwX, aflwY),
+	      data = torch.Tensor(2*FaceNotrain, ivch, desImaX, desImaY),
 	      labels = torch.Tensor(2*FaceNotrain),
 	      size = function() return 2*FaceNotrain end
 	   }
