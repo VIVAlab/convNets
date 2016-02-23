@@ -35,10 +35,11 @@ local desImaY = 12  --Image Height
 local ivch = 1
 local numblbls=45 -- eventually... put a function that counts the number of folders to make the numblbls reading automatic
 local crdnlty=torch.Tensor(numblbls,2)-- to store training data lengths and testdata lengths for each label respectively [#trainData_i,#testData_i],i in [1,45]
-
+local config = require('../config')
+path = config.calibDataCropped
 ---------loop to load ALL data
 for lbl=1,numblbls do --labels
-imageslist, SizeImageList = loadDataFiles('/home/jblan016/FaceDetection/Cascade/dataset/data/cropped/'..lbl..'/')
+imageslist, SizeImageList = loadDataFiles(path..lbl..'/')
 imageslist, imageslistt, crdnlty[{lbl,1}], crdnlty[{lbl,2}] = ShuffleAndDivideSets(imageslist,SizeImageList)
 
 	if lbl==1 then
