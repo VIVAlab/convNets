@@ -240,7 +240,7 @@ local function train(trainDataPOS,trainDataNEG)   ----------------------========
 
    -- time taken
    time = sys.clock() - time
-   print("\n==> time = " .. (time) .. 's')
+   print('==> time = '..time..'s')
 
    -- print confusion matrix
    print(confusion)

@@ -94,7 +94,7 @@ function test(testData)
      --netLighter(model1) --
      torch.save(filename, model1)
    end
-print(' + best global correct='..maxcorr..'%')
+print(' + best global correct: '..maxcorr..'%')
 
    confusion:zero()
    

@@ -21,6 +21,7 @@ local loss = t.loss
 local confusion = optim.ConfusionMatrix(classes)
 -- Logger:
 local testLogger = optim.Logger(paths.concat(opt.save, 'test.log'))
+local maxaverageValid=0;--initialisation in percent
 
 -- Batch test:
 local inputs = torch.Tensor(opt.batchSize,testData.data:size(2), 
@@ -81,6 +82,18 @@ function test(testData)
       testLogger:style{['% mean class accuracy (test set)'] = '-'}
       testLogger:plot()
    end
+
+   if maxaverageValid<confusion.averageValid * 100 then
+     maxaverageValid=confusion.averageValid * 100
+     local filename = paths.concat(opt.save, 'model.net')
+     os.execute('mkdir -p ' .. sys.dirname(filename))
+     print(sys.COLORS.blue ..'==> saving model to '..filename)
+     model1 = model:clone()
+     --netLighter(model1) --
+     torch.save(filename, model1)
+   end
+print(' + best average Valid: '..maxaverageValid..'%')
+
    confusion:zero()
    
 end
