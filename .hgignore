@@ -1,0 +1,14 @@
+# convNets project
+syntax: glob
+*.orig
+*.o
+*.~
+*.png
+*.jpg
+*.ppm
+*.jpg.pp3
+*.dat
+*.net
+*.log
+*.sqlite
+*tar.gz
