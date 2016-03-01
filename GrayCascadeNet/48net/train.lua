@@ -252,6 +252,8 @@ local function train(trainDataPOS,trainDataNEG)   ----------------------========
       trainLogger:plot()
    end
 
+--commented since save is done in testing
+--[[
    -- save/log current net
    local filename = paths.concat(opt.save, 'model.net')
    os.execute('mkdir -p ' .. sys.dirname(filename))
@@ -259,7 +261,7 @@ local function train(trainDataPOS,trainDataNEG)   ----------------------========
    model1 = model:clone()
    --netLighter(model1) --
    torch.save(filename, model1)
-
+--]]
    -- next epoch
    confusion:zero()
 

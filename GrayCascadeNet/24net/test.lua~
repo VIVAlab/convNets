@@ -17,12 +17,11 @@ local t = require 'model'
 local model = t.model
 local loss = t.loss
 
-
 -- This matrix records the current confusion across classes
 local confusion = optim.ConfusionMatrix(classes)
 -- Logger:
 local testLogger = optim.Logger(paths.concat(opt.save, 'test.log'))
-local maxaverageValid=0;--initialisation in percent
+
 -- Batch test:
 local inputs = torch.Tensor(opt.batchSize,testData.data:size(2), 
          testData.data:size(3), testData.data:size(4)) -- get size from data
@@ -61,9 +60,7 @@ function test(testData)
 
       -- test sample
       local preds = model:forward(inputs)
---print(targets[1])	
---print(math.exp(preds[1][1]))
---print(math.exp(preds[1][2]))
+
       -- confusion
       for i = 1,opt.batchSize do
          confusion:add(preds[i], targets[i])
@@ -76,26 +73,14 @@ function test(testData)
    print("\n==> time to test 1 sample = " .. (time*1000) .. 'ms')
 
    -- print confusion matrix
-   print(confusion) --sys.COLORS.red ..
-   
+   print(confusion)
+
    -- update log/plot
    testLogger:add{['% mean class accuracy (test set)'] = confusion.totalValid * 100}
    if opt.plot then
       testLogger:style{['% mean class accuracy (test set)'] = '-'}
       testLogger:plot()
    end
-
-   if maxaverageValid<confusion.averageValid * 100 then
-     maxaverageValid=confusion.averageValid * 100
-     local filename = paths.concat(opt.save, 'model.net')
-     os.execute('mkdir -p ' .. sys.dirname(filename))
-     print(sys.COLORS.blue ..'==> saving model to '..filename)
-     model1 = model:clone()
-     --netLighter(model1) --
-     torch.save(filename, model1)
-   end
-print(' + best average Valid: '..maxaverageValid..'%')
-
    confusion:zero()
    
 end

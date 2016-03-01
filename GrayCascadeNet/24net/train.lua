@@ -253,13 +253,15 @@ local function train(trainDataPOS,trainDataNEG)   ----------------------========
    end
 
    -- save/log current net
+--commented for early stopping
+--[[
    local filename = paths.concat(opt.save, 'model.net')
    os.execute('mkdir -p ' .. sys.dirname(filename))
    print('==> saving model to '..filename)
    model1 = model:clone()
    --netLighter(model1) --
    torch.save(filename, model1)
-
+--]]
    -- next epoch
    confusion:zero()
 
