@@ -1,35 +1,63 @@
 -- Config
-PATH_TO_IMAGES = '/home/joe/Documents/imageData/'
+PATH_TO_IMAGES = '/media/sf_ImageData/'
+PATH_TO_POS = PATH_TO_IMAGES..'static/POS_DATA/'
+PATH_TO_NEG = PATH_TO_IMAGES..'static/NEG_DATA/'
+PATH_TO_GENERATED = PATH_TO_IMAGES.. 'generated/'
 
--- Training Data --
-POSITIVE_TRAIN_FOLDERS = {PATH_TO_IMAGES..'TRAIN/positive/'}
-NEGATIVE_TRAIN_FOLDERS = {PATH_TO_IMAGES..'TRAIN/negative/'}
+-- Evaluation Net Training Data --
+--positiveData = {PATH_TO_IMAGES..'aflw/0/', PATH_TO_POS..'c_faces/', PATH_TO_POS..'faces/'}
+aflwData = PATH_TO_IMAGES..'aflw/0/'
+positiveData = {aflwData, PATH_TO_POS..'c_faces/', PATH_TO_POS..'faces/'}
+negativeData = {PATH_TO_NEG..'negative/', PATH_TO_NEG..'nonfaces/', PATH_TO_NEG..'test_nonfaces/'}
+-- lite data--
+positiveLite = {PATH_TO_POS..'faces/'}
+negativeLite = {PATH_TO_NEG..'negative/'}
+-- Calibration Net Training Data --
+calibDataRoot = '/media/sf_ImageData/'
+calibDataCropped = calibDataRoot..'generated/croppednotdup/'
+-- FALSE POSITIVES --
+falsePositives = PATH_TO_GENERATED..'FaceLessImages/'
+-- 24, 48 detection nets--
+posTrain = {aflwData, PATH_TO_POS..'c_faces/'} 
+posTest = {PATH_TO_POS..'faces/'}
+negTrain = {PATH_TO_NEG..'negative/', PATH_TO_NEG..'nonfaces/', falsePositives}
+negTest = {PATH_TO_NEG..'test_nonfaces/'}
 
--- Test Data --
-POSITIVE_TEST_FOLDERS = {PATH_TO_IMAGES..'TEST/positive/'}
-NEGATIVE_TEST_FOLDERS = {PATH_TO_IMAGES..'TEST/negative/'}
+-- MODEL LOCATIONS --
+modelRoot = '../../GrayCascadeNet/'
+---- Evaluation Nets ----
+model12net = modelRoot..'12net/results/model.net'
+model24net = modelRoot..'24net/results/model.net'
+model48net = modelRoot..'48net/results/model.net'
+---- Calibration Nets ----
+model12calibnet = modelRoot..'12calibnet/results/model.net'
+model24calibnet = modelRoot..'24calibnet/results/model.net'
+model48calibnet = modelRoot..'48calibnet/results/model.net'
 
-POSITIVE_DATA = {PATH_TO_IMAGES..'TRAIN/positive/', PATH_TO_IMAGES..'TEST/positive/'}
-NEGATIVE_DATA = {PATH_TO_IMAGES..'TRAIN/negative/', PATH_TO_IMAGES..'TEST/negative/'}
+if(opt.size =='lite') then
+   positiveData = positiveLite
+   negativeData = negativeLite
+   negTrain = {PATH_TO_GENERATED..'FaceLessImagesLite/'}
+   posTrain = {PATH_TO_POS..'c_faces/'}
+   calibDataCropped = calibDataRoot..'generated/croppednotdupLite/'
+end
 
-GENERATED_NEGATIVES_FOLDER = {PATH_TO_IMAGES..'TRAIN/negative/'} -- should be false positives
-
-positiveTrain = POSITIVE_TRAIN_FOLDERS
-negativeTrain = NEGATIVE_TRAIN_FOLDERS
-
-positiveTest = POSITIVE_TEST_FOLDERS
-negativeTest = NEGATIVE_TEST_FOLDERS
-
-positiveData = POSITIVE_DATA
-negativeData = NEGATIVE_DATA
-
-generatedNegativeData = GENERATED_NEGATIVES_FOLDER
 return {
-   positiveTrain = positiveTrain,
-   negativeTrain = negativeTrain,
-   positiveTest = positiveTest,
-   negativeTest = negativeTest,
    positiveData = positiveData,
    negativeData = negativeData,
-   generatedNegativeData = generatedNegativeData
+   
+   positiveTrain = posTrain,
+   positiveTest = posTest,
+   negativeTest = negTest,
+   negativeTrain = negTrain,
+   
+   calibDataCropped = calibDataCropped,
+
+   model12net = model12net,
+   model24net = model24net,
+   model48net = model48net,
+
+   model12calibnet = model12calibnet,
+   model24calibnet = model24calibnet,
+   model48calibnet = model48calibnet
 }

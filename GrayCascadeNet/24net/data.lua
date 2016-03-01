@@ -57,7 +57,7 @@ local config = require('../config')
 POStrainadresses = config.positiveTrain
 testadresslist = config.positiveTest
 negtest = config.negativeTest
-negtrain = config.generatedNegativeData
+negtrain = config.negativeTrain
 
 imageslistPOS,FaceNo = loadDataFilesPOS(POStrainadresses) --Positive Train Data Load
 imageslistNEG,BckgNo = loadDataFilesNEG(negtrain) --Positive Train Data Load
