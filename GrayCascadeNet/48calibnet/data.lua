@@ -28,7 +28,12 @@ return trainList, testList, TrainSize, TestSize
 end
 
 -----------------------------------------------------------------------
-
+function convertToGrayScale(im)
+	if im:size(1) > 1 then
+		im = image.rgb2y(im)
+	end
+	return im
+end
 
 local desImaX = 48  --Image Width
 local desImaY = 48  --Image Height
@@ -36,9 +41,11 @@ local ivch = 1
 local numblbls=45 -- TODO eventually put a function that counts the number of folders to make the numblbls reading automatic
 local crdnlty=torch.Tensor(numblbls,2)-- to store training data lengths and testdata lengths for each label respectively [#trainData_i,#testData_i],i in [1,45]
 
+local config = require('../config')
+path = config.calibDataCropped
 ---------loop to load ALL data
 for lbl=1,numblbls do --labels
-imageslist, SizeImageList = loadDataFiles('/home/jblan016/FaceDetection/Cascade/dataset/data/cropped/'..lbl..'/')
+imageslist, SizeImageList = loadDataFiles(path..lbl..'/')
 imageslist, imageslistt, crdnlty[{lbl,1}], crdnlty[{lbl,2}] = ShuffleAndDivideSets(imageslist,SizeImageList)
 	if lbl==1 then
 	
@@ -52,10 +59,10 @@ imageslist, imageslistt, crdnlty[{lbl,1}], crdnlty[{lbl,2}] = ShuffleAndDivideSe
 		      tesize = crdnlty[{lbl,2}]
 
 		for j,filename in ipairs(imageslist) do
-			print(filename)
+			--print(filename)
 			local im =  image.load(filename):float()
 			im =  image.scale(im,desImaX,desImaY)
-			trdata[j] = image.rgb2y(im)
+			trdata[j] = convertToGrayScale(im)
 		end
 		imageslist = nil
    		print('train data loaded for label '..lbl)
@@ -63,7 +70,7 @@ imageslist, imageslistt, crdnlty[{lbl,1}], crdnlty[{lbl,2}] = ShuffleAndDivideSe
 		for j,filename in ipairs(imageslistt) do
 			local im =  image.load(filename):float()
 			im =  image.scale(im,desImaX,desImaY)
-			tedata[j] = image.rgb2y(im)
+			tedata[j] = convertToGrayScale(im)
 		end
 		print('test data loaded for label '..lbl)		
 	   	imageslistt = nil
@@ -80,10 +87,10 @@ imageslist, imageslistt, crdnlty[{lbl,1}], crdnlty[{lbl,2}] = ShuffleAndDivideSe
 	      	tesize = telabels:size()[1]
 			   
 		for j,filename in ipairs(imageslist) do
-			print(filename)
+			--print(filename)
 			local im =  image.load(filename):float()
 			im =  image.scale(im,desImaX,desImaY)
-			trdata[j+trsize-crdnlty[{lbl,1}]] = image.rgb2y(im)
+			trdata[j+trsize-crdnlty[{lbl,1}]] = convertToGrayScale(im)
 		end
 		imageslist = nil
    		print('train data loaded for label '..lbl)
@@ -93,7 +100,7 @@ imageslist, imageslistt, crdnlty[{lbl,1}], crdnlty[{lbl,2}] = ShuffleAndDivideSe
 			print(filename)
 			local im =  image.load(filename):float()
 			im =  image.scale(im,desImaX,desImaY)
-			tedata[j+tesize-crdnlty[{lbl,2}]] = image.rgb2y(im)
+			tedata[j+tesize-crdnlty[{lbl,2}]] = convertToGrayScale(im)
 		end
 		imageslistt = nil
    		print('test data loaded for label '..lbl)
