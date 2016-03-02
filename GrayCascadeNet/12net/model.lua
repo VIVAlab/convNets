@@ -1,7 +1,7 @@
 require 'torch'   -- torch
 require 'image'   -- to visualize the dataset
 require 'nn'      -- provides all sorts of trainable modules/layers
-require 'Flip'
+--require 'Flip'
 
 print('Model')
 torch.setdefaulttensortype('torch.FloatTensor')
@@ -11,38 +11,28 @@ if  (opt.load ~= "") then
     print(sys.COLORS.blue .. '**Pre-trained model loaded**') 
 else	
 model = nn.Sequential()
-c = nn.ConcatTable()
-P1 = nn.Sequential()
-P2 = nn.Sequential()
 
-P1:add(nn.SpatialConvolutionMM(1,16,3,3,1,1)) --I(1x12x12)->O(16x10x10)
-P1:add(nn.Dropout())
-P1:add(nn.SpatialMaxPooling(3,3,2,2,1,1)) --O(16x5x5)
-P1:add(nn.ReLU())
-P1:add(nn.SpatialConvolutionMM(16,16,5,5,1,1))
-P1:add(nn.Dropout())
-P1:add(nn.ReLU())
-P1:add(nn.Reshape(16))
+--Layer 1: Convolutional layer
+--model:add(nn.SpatialDropout())
+model:add(nn.SpatialConvolutionMM(1,16,3,3,1,1)) -- #input-planes = 3, #output-planes=16, filter-size=6, stride=2
 
-P2:add(nn.Flip(3))--P2:add(nn.Flip(3)) --xdimension flip.  dim 1 is batch dimension, dim 2 is channel dim or feature map dim.
-P2:add(nn.SpatialConvolutionMM(1,16,3,3,1,1)) --I(1x12x12)->O(16x10x10)
-P2:add(nn.Dropout())
-P2:add(nn.SpatialMaxPooling(3,3,2,2,1,1)) --O(16x5x5)
-P2:add(nn.ReLU())
-P2:add(nn.SpatialConvolutionMM(16,16,5,5,1,1))
-P2:add(nn.Dropout())
-P2:add(nn.ReLU())
-P2:add(nn.Reshape(16))
+--Layer 2: Max-pooling layer +RELU
+model:add(nn.SpatialMaxPooling(3,3,2,2,1,1)) -- MaxPooling size=3, stride=2
+model:add(nn.ReLU())
 
-c:add(P1)
-c:add(P2)
-model:add(c)
+--Layer 3: Fully-connected Layer+RELU
+--model:add(nn.SpatialDropout())
+model:add(nn.SpatialConvolutionMM(16,16,5,5,1,1))--model:add(nn.SpatialConvolutionMM(16,16,4,4,1,1))
+model:add(nn.ReLU())
 
-model:add(nn.JoinTable(2))
-model:add(nn.Dropout())
-model:add(nn.Linear(16+16,2))
+--Layer five
+model:add(nn.Reshape(16))
+
+--Layer six
+--model:add(nn.Dropout())
+model:add(nn.Linear(16,2))
+
 model:add(nn.LogSoftMax())
-
 end
 
 
