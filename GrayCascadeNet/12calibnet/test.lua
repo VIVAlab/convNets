@@ -29,7 +29,7 @@ end
 --]]
 -- This matrix records the current confusion across classes
 local confusion = optim.ConfusionMatrix(classes)
-local maxcorr=0;--initialisation in percent
+local maxaverageValid=0;--initialisation in percent
 -- Logger:
 local testLogger = optim.Logger(paths.concat(opt.save, 'test.log'))
 
@@ -70,8 +70,9 @@ function test(testData)
       end
 
       -- test sample
-      local preds = model:forward(inputs) --Original line:local preds= model:forward(network:forward(inputs))
-
+      model:evaluate()
+      local preds = model:forward(inputs)
+      model:training()
       -- confusion
       for i = 1,opt.batchSize do
          confusion:add(preds[i], targets[i])
@@ -93,8 +94,8 @@ function test(testData)
       testLogger:plot()
    end
 
-   if maxcorr<confusion.totalValid * 100 then
-     maxcorr=confusion.totalValid * 100
+   if maxaverageValid<confusion.averageValid * 100 then
+     maxaverageValid=confusion.averageValid * 100
      local filename = paths.concat(opt.save, 'model.net')
      os.execute('mkdir -p ' .. sys.dirname(filename))
      print(sys.COLORS.blue ..'==> saving model to '..filename)
@@ -102,7 +103,7 @@ function test(testData)
      --netLighter(model1) --
      torch.save(filename, model1)
    end
-   print(' + best global correct: '..maxcorr..'%')
+   print(' + best global correct: '..maxaverageValid..'%')
 
    confusion:zero()
 

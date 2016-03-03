@@ -17,7 +17,7 @@ print(sys.COLORS.red ..  '==> processing options')
 opt = lapp[[
    -a,--trainingratio      (default 3)           ratio of negative over positive examples in training batch >=1
    -b,--batchSize          (default 128)         batch size
-   -c,--setSplit           (default .1)          ratio of #test data/#training data
+   -c,--setSplit           (default .1)          ratio of #test data/#test+training data
    -d,--learningRateDecay  (default 1e-7)        learning rate decay (in # samples)
    -g,--optimization       (default 'sgd')       optimization method: choose 'sgd','cg' or 'lbfgs'
    -i,--devid              (default 1)           device ID (if using CUDA)

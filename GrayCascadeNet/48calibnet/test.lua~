@@ -15,25 +15,16 @@ print(sys.COLORS.red .. '==> defining some tools')
 -- model:
 local t = require 'model'
 local model = t.model
+local maxcorr=0;--initialisation in percent
 local loss = t.loss
---[[
-local network1 = torch.load('/home/jblan016/FaceDetection/48net/results/model.net')
-
-local network = nn.Sequential()
-
-	for i=1,3 do
-		network:add(network1.modules[i])
-	end
-
-	network:add(network1.modules[5])
-	network:add(network1.modules[7])
-
-if opt.type == 'cuda' then
-  network:cuda()
-end
---]]
-network1=nil
-
+--local network1 = torch.load('/home/jblan016/FaceDetection/24net/results/model.net')
+--local network = nn.Sequential()
+--	for i=1,6 do
+--		network:add(network1.modules[i])
+--	end
+--if opt.type == 'cuda' then
+--   network:cuda()
+--end
 -- This matrix records the current confusion across classes
 local confusion = optim.ConfusionMatrix(classes)
 -- Logger:
@@ -76,7 +67,7 @@ function test(testData)
       end
 
       -- test sample
-      local preds = model:forward(inputs)--local preds = model:forward(network:forward(inputs)) --ORg;
+      local preds = model:forward(inputs) --Original line:local preds = model:forward(inputs)
 
       -- confusion
       for i = 1,opt.batchSize do
@@ -98,6 +89,18 @@ function test(testData)
       testLogger:style{['% mean class accuracy (test set)'] = '-'}
       testLogger:plot()
    end
+
+if maxcorr<confusion.totalValid * 100 then
+     maxcorr=confusion.totalValid * 100
+     local filename = paths.concat(opt.save, 'model.net')
+     os.execute('mkdir -p ' .. sys.dirname(filename))
+     print(sys.COLORS.blue ..'==> saving model to '..filename)
+     model1 = model:clone()
+     --netLighter(model1) --
+     torch.save(filename, model1)
+   end
+   print(' + best global correct: '..maxcorr..'%')
+
    confusion:zero()
    
 end
