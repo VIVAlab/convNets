@@ -92,14 +92,19 @@ function test(testData)
       testLogger:style{['% mean class accuracy (test set)'] = '-'}
       testLogger:plot()
    end
+
+   if maxcorr<confusion.totalValid * 100 then
+     maxcorr=confusion.totalValid * 100
+     local filename = paths.concat(opt.save, 'model.net')
+     os.execute('mkdir -p ' .. sys.dirname(filename))
+     print(sys.COLORS.blue ..'==> saving model to '..filename)
+     model1 = model:clone()
+     --netLighter(model1) --
+     torch.save(filename, model1)
+   end
+   print(' + best global correct: '..maxcorr..'%')
+
    confusion:zero()
-   
-   local filename = paths.concat(opt.save, 'model.net')
-   os.execute('mkdir -p ' .. sys.dirname(filename))
-   print('==> saving model to '..filename)
-   model1 = model:clone()
-   --netLighter(model1)
-   torch.save(filename, model1)
 
 end
 

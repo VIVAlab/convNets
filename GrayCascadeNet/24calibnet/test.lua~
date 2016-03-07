@@ -15,6 +15,7 @@ print(sys.COLORS.red .. '==> defining some tools')
 -- model:
 local t = require 'model'
 local model = t.model
+local maxcorr=0;--initialisation in percent
 local loss = t.loss
 --local network1 = torch.load('/home/jblan016/FaceDetection/24net/results/model.net')
 --local network = nn.Sequential()
@@ -66,8 +67,9 @@ function test(testData)
       end
 
       -- test sample
-      local preds = model:forward(inputs) --Original line:local preds = model:forward(inputs)
-
+      model:evaluate()
+      local preds = model:forward(inputs)
+      model:training()
       -- confusion
       for i = 1,opt.batchSize do
          confusion:add(preds[i], targets[i])

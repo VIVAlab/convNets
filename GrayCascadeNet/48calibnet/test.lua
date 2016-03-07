@@ -15,7 +15,7 @@ print(sys.COLORS.red .. '==> defining some tools')
 -- model:
 local t = require 'model'
 local model = t.model
-local maxcorr=0;--initialisation in percent
+local maxaverageValid=0;--initialisation in percent
 local loss = t.loss
 --local network1 = torch.load('/home/jblan016/FaceDetection/24net/results/model.net')
 --local network = nn.Sequential()
@@ -67,8 +67,9 @@ function test(testData)
       end
 
       -- test sample
-      local preds = model:forward(inputs) --Original line:local preds = model:forward(inputs)
-
+      model:evaluate()
+      local preds = model:forward(inputs)
+      model:training()
       -- confusion
       for i = 1,opt.batchSize do
          confusion:add(preds[i], targets[i])
@@ -90,8 +91,8 @@ function test(testData)
       testLogger:plot()
    end
 
-if maxcorr<confusion.totalValid * 100 then
-     maxcorr=confusion.totalValid * 100
+   if maxaverageValid<confusion.averageValid * 100 then
+     maxaverageValid=confusion.averageValid * 100
      local filename = paths.concat(opt.save, 'model.net')
      os.execute('mkdir -p ' .. sys.dirname(filename))
      print(sys.COLORS.blue ..'==> saving model to '..filename)
@@ -99,7 +100,7 @@ if maxcorr<confusion.totalValid * 100 then
      --netLighter(model1) --
      torch.save(filename, model1)
    end
-   print(' + best global correct: '..maxcorr..'%')
+print(' + best average Valid: '..maxaverageValid..'%')
 
    confusion:zero()
    

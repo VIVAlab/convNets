@@ -60,8 +60,9 @@ function test(testData)
       end
 
       -- test sample
+      model:evaluate()
       local preds = model:forward(inputs)
-
+      model:training()
       -- confusion
       for i = 1,opt.batchSize do
          confusion:add(preds[i], targets[i])
