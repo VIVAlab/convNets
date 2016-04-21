@@ -1,0 +1,14 @@
+*.lua~
+GrayCascadeNet/12net/results
+GrayCascadeNet/12calibnet/results
+GrayCascadeNet/24net/results
+GrayCascadeNet/24calibnet/results
+GrayCascadeNet/48net/results
+GrayCascadeNet/48calibnet/results
+RGBCascadeNet/12net/results
+RGBCascadeNet/12calibnet/results
+RGBCascadeNet/24net/results
+RGBCascadeNet/24calibnet/results
+RGBCascadeNet/48net/results
+RGBCascadeNet/48calibnet/results
+.gitignore~
