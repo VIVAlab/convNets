@@ -8,64 +8,126 @@ print(sys.COLORS.red ..  '==> preprocessing data')
 
 local channels = {'y'}
 
+local Width = 12  --Image Width
+local Height =12  --Image Height
 -- Normalize each channel, and store mean/std
 -- per channel. These values are important, as they are part of
 -- the trainable parameters. At test time, test data will be normalized
 -- using these values.
 print(sys.COLORS.red ..  '==> preprocessing data: global normalization:')
+
 local mean = {}
 local std = {}
-local meanNEG = {}
-local stdNEG = {}
-local meanPOS = {}
-local stdPOS = {}
-for i,channel in ipairs(channels) do
-   -- normalize each channel globally:
+local lbl = 0
+local cnt = 0
+local mean2 = 0
+local std2 = 0
 
-   meanNEG[i] = trainDataNEG.data[{ {},i,{},{} }]:mean()
-   meanPOS[i] = trainDataPOS.data[{ {},i,{},{} }]:mean()
-   mean[i]=(meanPOS[i]+opt.trainingratio*meanNEG[i])/(1+opt.trainingratio)
-   trainDataNEG.data[{ {},i,{},{} }]:add(-mean[i])
-   trainDataPOS.data[{ {},i,{},{} }]:add(-mean[i])
-   std[i]=math.sqrt((trainDataPOS.data[{ {},i,{},{} }]:clone():pow(2):mean()+opt.trainingratio*trainDataNEG.data[{ {},i,{},{} }]:clone():pow(2):mean())/(1+opt.trainingratio))
-trainDataNEG.data[{ {},i,{},{} }]:div(std[i])
-trainDataPOS.data[{ {},i,{},{} }]:div(std[i])
+-- compute means/stds
+for i,channel in ipairs(channels) do
+  mean[i]=0
+  std[i]=0
+  mean2 = 0
+  std2 = 0
+  cnt = 0
+    lbl = 2
+     for k=1, #trainData.data[lbl] do
+     mean2=mean2+trainData.data[lbl][k][{ i,{},{} }]:mean()
+     std2=std2+trainData.data[lbl][k][{ i,{},{} }]:std()
+     cnt=cnt+1
+     end
+
+    lbl = 1
+     mean[i]=trainData.data[lbl][{{},i,{},{} }]:mean()
+     std[i]=trainData.data[lbl][{{}, i,{},{} }]:std()
+
+  mean[i]=(trainData.data[lbl]:size(1)*mean[i]+mean2)/(cnt+trainData.data[lbl]:size(1))
+  std[i]=(trainData.data[lbl]:size(1)*std[i]+std2)/(cnt+trainData.data[lbl]:size(1))
 end
-print(meanNEG,meanPOS,mean,std)
+
+-- Normalize each channel globally:
+for i,channel in ipairs(channels) do
+    lbl = 1
+     trainData.data[lbl][{{},i,{},{} }]:add(-mean[i])
+     trainData.data[lbl][{{},i,{},{} }]:div(std[i])
+    lbl = 2
+     for k=1, #trainData.data[lbl] do
+     trainData.data[lbl][k][{ i,{},{} }]:add(-mean[i])
+     trainData.data[lbl][k][{ i,{},{} }]:div(std[i])
+     end
+  
+end
+
 -- Normalize test data, using the training means/stds
-for i,channel in ipairs(channels) do
-   -- normalize each channel globally:
 
-   testData.data[{ {},i,{},{} }]:add(-mean[i])
-   testData.data[{ {},i,{},{} }]:div(std[i])
+for i,channel in ipairs(channels) do
+    lbl = 1
+     testData.data[lbl][{{},i,{},{} }]:add(-mean[i])
+     testData.data[lbl][{{},i,{},{} }]:div(std[i])
+    lbl = 2
+     for k=1, #testData.data[lbl] do
+     testData.data[lbl][k][{ i,{},{} }]:add(-mean[i])
+     testData.data[lbl][k][{ i,{},{} }]:div(std[i])
+     end
 end
-torch.save('results/mean.dat',mean)
-torch.save('results/std.dat',std)
+
+
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> verify statistics:')
 
--- It's always good practice to verify that data is properly
--- normalized.
+
 
 for i,channel in ipairs(channels) do
-   local trainMeanPOS = trainDataPOS.data[{ {},i }]:mean()
-   local trainStdPOS = trainDataPOS.data[{ {},i }]:std()
-   local trainMeanNEG = trainDataNEG.data[{ {},i }]:mean()
-   local trainStdNEG = trainDataNEG.data[{ {},i }]:std()
+  trainMean=0
+  trainStd=0
+  trainMean2 = 0
+  trainStd2 = 0
+  cnt = 0
+    lbl = 2
+     for k=1,#trainData.data[lbl] do
+     trainMean2=trainMean2+trainData.data[lbl][k][{ i,{},{} }]:mean()
+     trainStd2=trainStd2+trainData.data[lbl][k][{ i,{},{} }]:std()
+     cnt=cnt+1
+     end
 
-   local testMean = testData.data[{ {},i }]:mean()
-   local testStd = testData.data[{ {},i }]:std()
+    lbl = 1
+     trainMean = trainData.data[lbl][{{},i,{},{} }]:mean()
+     trainStd = trainData.data[lbl][{{},i,{},{} }]:std()
 
-   print('       positive training data, '..channel..'-channel, mean:               ' .. trainMeanPOS)
-   print('       positive training data, '..channel..'-channel, standard deviation: ' .. trainStdPOS)
+  trainMean=(trainData.data[lbl]:size(1)*trainMean+trainMean2)/(cnt+trainData.data[lbl]:size(1))
+  trainStd=(trainData.data[lbl]:size(1)*trainStd+trainStd2)/(cnt+trainData.data[lbl]:size(1))
 
-   print('       negative training data, '..channel..'-channel, mean:               ' .. trainMeanNEG)
-   print('       negative training data, '..channel..'-channel, standard deviation: ' .. trainStdNEG)
+  testMean=0
+  testStd=0
+  testMean2 = 0
+  testStd2 = 0
+  cnt = 0
+    lbl = 2
+     for k=1, #testData.data[lbl] do
+     testMean2=trainMean2+testData.data[lbl][k][{ i,{},{} }]:mean()
+     testStd2=trainStd2+testData.data[lbl][k][{ i,{},{} }]:std()
+     cnt=cnt+1
+     end
+
+    lbl = 1
+     testMean = testData.data[lbl][{{},i,{},{} }]:mean()
+     testStd = testData.data[lbl][{{},i,{},{} }]:std()
+
+  testMean = (testData.data[lbl]:size(1)*testMean+testMean2)/(cnt+testData.data[lbl]:size(1))
+  testStd = (testData.data[lbl]:size(1)*testStd+testStd2)/(cnt+testData.data[lbl]:size(1))
+
+
+   print('       training data, '..channel..'-channel, mean:               ' .. trainMean)
+   print('       training data, '..channel..'-channel, standard deviation: ' .. trainStd)
 
    print('       test data, '..channel..'-channel, mean:                   ' .. testMean)
    print('       test data, '..channel..'-channel, standard deviation:     ' .. testStd)
+
 end
 
+
+torch.save('results/mean.dat',mean)
+torch.save('results/std.dat',std)
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> visualizing data:')
 
@@ -74,10 +136,8 @@ print(sys.COLORS.red ..  '==> visualizing data:')
 
 if opt.visualize then
    -- Showing some training exaples
-   local first128Samples = trainDataPOS.data[{ {1,32} }]
-   image.display{image=first32Samples, nrow=16, legend='Some positive training examples'}
-   local first128Samples = trainDataNEG.data[{ {1,96} }]
-   image.display{image=first96Samples, nrow=16, legend='Some negative training examples'}
+   local first128Samples = trainData.data[{ {1,128} }]
+   image.display{image=first128Samples, nrow=16, legend='Some training examples'}
    -- Showing some testing exaples
    local first128Samples = testData.data[{ {1,128} }]
    image.display{image=first128Samples, nrow=16, legend='Some testing examples'}

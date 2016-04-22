@@ -146,8 +146,7 @@ local Lmin=torch.ceil(opt.patchsidepercent*L)
 local Lpatch=Lmin
 local di=0
 local dj=0
-local POS_nofit_FLAG=0
-local NEG_nofit_FLAG=0 
+
 local function train(trainDataPOS,trainDataNEG)   ----------------------=================================TRAIN============
 
    -- epoch tracker
@@ -182,15 +181,8 @@ local function train(trainDataPOS,trainDataNEG)   ----------------------========
          tNEG=0
          shuffleNEGflag=true
          epochNEG=epochNEG+1
-         NEG_nofit_FLAG=NEG_nofit_FLAG+1
-         if NEG_nofit_FLAG==2 then
-         error('Give enough (-) data to make at least one mini-batch')
-         end
          break
-      elseif NEG_nofit_FLAG==1 then
-         NEG_nofit_FLAG=0
       end
-
       -- negative data batch fits?
       tPOS=tPOS+1
       --print('t+='..tPOS)
@@ -199,13 +191,7 @@ local function train(trainDataPOS,trainDataNEG)   ----------------------========
          tNEG=tNEG-1  --cancel index update of negative data because of loop break.
          shufflePOSflag=true
          epochPOS=epochPOS+1
-         POS_nofit_FLAG=POS_nofit_FLAG+1
-         if POS_nofit_FLAG==2 then
-         error('Give enough (+) data to make at least one mini-batch')
-         end
          break
-      elseif POS_nofit_FLAG==1 then
-         POS_nofit_FLAG=0
       end
       -- create batch for positive data
       local idx = 1
