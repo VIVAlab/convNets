@@ -7,29 +7,19 @@ torch.setdefaulttensortype('torch.FloatTensor')
 
 if  (opt.load ~= "") then
     model = torch.load(opt.load)
-    print(sys.COLORS.blue .. '**Pre-trained model loaded**') 	
+    print(sys.COLORS.blue .. '**Pre-trained model loaded**') 
 else	
 model = nn.Sequential()
---Layer 1: Convolutional layer
---model:add(nn.SpatialDropout())
-model:add(nn.SpatialConvolutionMM(3,16,3,3,1,1)) -- #input-planes = 3, #output-planes=16, filter-size=6, stride=2
 
---Layer 2: Max-pooling layer +RELU
-model:add(nn.SpatialMaxPooling(3,3,2,2,1,1)) -- MaxPooling size=3, stride=2
+model:add(nn.SpatialConvolutionMM(3,16,3,3,1,1)) --I(1x12x12)->O(16x10x10)
+
+
+model:add(nn.SpatialMaxPooling(3,3,2,2,1,1)) --O(16x5x5)
 model:add(nn.ReLU())
-
---Layer 3: Fully-connected Layer+RELU
---model:add(nn.SpatialDropout())
-model:add(nn.SpatialConvolutionMM(16,16,5,5,1,1))--model:add(nn.SpatialConvolutionMM(16,16,4,4,1,1))
+model:add(nn.SpatialConvolutionMM(16,16,5,5,1,1))
 model:add(nn.ReLU())
-
---Layer five
 model:add(nn.Reshape(16))
-
---Layer six
---model:add(nn.Dropout())
 model:add(nn.Linear(16,2))
-
 model:add(nn.LogSoftMax())
 
 end
@@ -51,4 +41,3 @@ return {
    model = model,
    loss = loss,
 }
-

@@ -39,8 +39,8 @@ for i,channel in ipairs(channels) do
    testData.data[{ {},i,{},{} }]:add(-mean[i])
    testData.data[{ {},i,{},{} }]:div(std[i])
 end
-torch.save('results/mean().dat',mean)
-torch.save('results/std().dat',std)
+torch.save('results/mean.dat',mean)
+torch.save('results/std.dat',std)
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> verify statistics:')
 
