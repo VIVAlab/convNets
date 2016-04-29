@@ -26,6 +26,7 @@ opt = lapp[[
    -i,--devid              (default 1)           device ID (if using CUDA)
    -n,--TotNumberperLbl    (default 25e3)        background number for training
    -s,--size               (default small)       dataset: small or full or extra
+   -l,--load               (default "")          load old model by providing address
    -o,--save               (default results)     save directory
       --patches            (default all)         percentage of samples to use for testing'
       --visualize                                visualize dataset

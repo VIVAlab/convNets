@@ -15,6 +15,11 @@ require 'nn'      -- provides all sorts of trainable modules/layers
 print(sys.COLORS.red ..  '==> processing options')
 
 opt = lapp[[
+   -g,--optimization       (default 'sgd')       optimization method: choose 'sgd' or 'cg'
+   -e,--warp               (default 'true')     warping of training images to a fixed size
+   -k,--maxIter            (default 1e2)         maximum number of iterations
+   -c,--setSplit           (default 0.1 )         ratio of #test data/#test+training data
+   -f,--fold               (default 1)           current fold number
    -r,--learningRate       (default 1e-3)        learning rate
    -d,--learningRateDecay  (default 1e-7)        learning rate decay (in # samples)
    -w,--weightDecay        (default 1e-5)        L2 penalty on the weights
@@ -27,6 +32,7 @@ opt = lapp[[
    -n,--TotNumberperLbl    (default 25e3)        background number for training
    -s,--size               (default small)       dataset: small or full or extra
    -l,--load               (default "")          load old model by providing address
+   -v,--saveres            (default 1)           save if 1
    -o,--save               (default results)     save directory
       --patches            (default all)         percentage of samples to use for testing'
       --visualize                                visualize dataset
@@ -54,8 +60,11 @@ local test  = require 'test'
 
 ----------------------------------------------------------------------
 print(sys.COLORS.red .. '==> training!')
-
+epoch = 0
 while true do
-   train(data.trainData)
+   epoch = train(data.trainData,P)
    test(data.testData)
+   if epoch>400 then
+   break
+   end
 end

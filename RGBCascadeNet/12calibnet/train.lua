@@ -15,6 +15,7 @@
 require 'torch'   -- torch
 require 'xlua'    -- xlua provides useful tools, like progress bars
 require 'optim'   -- an optimization package, for online and batch methods
+require 'image'
 print('Train')
 ----------------------------------------------------------------------
 -- Model + Loss:
@@ -22,19 +23,22 @@ local t = require 'model'
 local model = t.model
 local fwmodel = t.model
 local loss = t.loss
-local network1 = torch.load('/home/jblan016/FaceDetection/12netmod/results/model.net')
---TODO:uncomment the following lines if thou whishest to recycle the 12net weights
+
+-- model input dimensions
+local mdlH=12
+local mdlW=12
+local ich=3
 --[[
-local network = nn.Sequential()
+local network1 = torch.load('/home/jblan016/FaceDetection/12netmodGray/results/model(BestSGD).net')
+local network0 = nn.Sequential()
 	for i=1,3 do
-		network:add(network1.modules[i])
+		network0:add(network1.modules[i])
 	end
 
 if opt.type == 'cuda' then
-   network:cuda()
+   network0:cuda()
 end
 --]]
-
 ----------------------------------------------------------------------
 -- Save light network tools:
 function nilling(module)
@@ -55,6 +59,7 @@ function netLighter(network)
    end
 end
 
+
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> defining some tools')
 
@@ -62,8 +67,8 @@ print(sys.COLORS.red ..  '==> defining some tools')
 local confusion = optim.ConfusionMatrix(classes)
 
 -- Log results to files
-local trainLogger = optim.Logger(paths.concat(opt.save, 'train.log'))
-
+local trainLogger = optim.Logger(paths.concat(opt.save, 'train_'..opt.fold..'V.log'))
+local trainvldLogger = optim.Logger(paths.concat(opt.save, 'trainvld_'..opt.fold..'V.log'))
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> flattening model parameters')
 
@@ -75,27 +80,106 @@ local w,dE_dw = model:getParameters()
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> configuring optimizer')
 
-local optimState = {
+local optimState
+local optimMethod
+if opt.optimization=='sgd' then
+ optimState= {
    learningRate = opt.learningRate,
    momentum = opt.momentum,
    weightDecay = opt.weightDecay,
    learningRateDecay = opt.learningRateDecay
 }
+optimMethod=optim.sgd
+elseif opt.optimization=='cg' then
+optimState={
+verbose=true,
+maxIter=opt.maxIter
+}
+optimMethod=optim.cg
+else
+error('unknown optimization method')
+end
 
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> allocating minibatch memory')
-local x = torch.Tensor(opt.batchSize,trainData.data:size(2), 
-         trainData.data:size(3), trainData.data:size(4)) --faces data
+local x = torch.Tensor(opt.batchSize,ich, 
+         mdlH, mdlW) --faces data
 local yt = torch.Tensor(opt.batchSize)
+
+--[[
 if opt.type == 'cuda' then 
    x = x:cuda()
    yt = yt:cuda()
 end
+--]]
+------------------------------------------------------------
+--unwrap labels
+local flippedlabels = torch.LongTensor(45):fill(0)
+dims=5
+dimtx=3
+dimty=3
+sT=torch.Tensor(dims,dimtx,dimty):stride()
+for i=1,dims do
+  for j=1,dimtx do
+    for k=1,dimty do
+       flippedlabels[1+(i-1)*sT[1]+(j-1)*sT[2]+(k-1)*sT[3]]=1+(i-1)*sT[1]+(dimtx-j)*sT[2]+(k-1)*sT[3]
+    end
+  end
+end
+
+local indx = torch.LongTensor((#trainData.labels[1])[1],2)
+
+local indxtmp = torch.LongTensor()
+indx[{{},1}] = trainData.labels[1]
+indx[{{},2}] = torch.range(1,(#trainData.labels[1])[1]):type('torch.LongTensor')
+
+for i=2,#trainData.labels do
+  indxtmp = torch.LongTensor((#trainData.labels[i])[1],2)
+  indxtmp[{{},1}] = trainData.labels[i]
+  indxtmp[{{},2}] = torch.range(1,(#trainData.labels[i])[1]):type('torch.LongTensor')
+  indx=torch.cat(indx,indxtmp,1)
+end
+indxtmp = nil
+--Data augmentation functions
+function randBSC(imag)  --random brightness/saturation/constrast of image
+  local c = (torch.round(torch.mul(torch.rand(3),2))+1)/2
+  local g = image.rgb2y(imag)
+  local Gm = torch.Tensor(imag:size()):fill(g:mean())
+  g = torch.repeatTensor(g,3,1,1)
+  imag = torch.mul(imag,c:mean())+torch.mul(Gm,(1-c[1]))+torch.mul(g,(1-c[2]))
+  return imag
+end
+
+function randlighting(imag,lbl)
+  local r=torch.randn(3)*0.316227; -- r~N(0,sqrt(.1)I)
+  imag= imag+torch.mul(P[lbl][1],r[1])+torch.mul(P[lbl][2],r[2])+torch.mul(P[lbl][3],r[3])
+return imag
+end
+
+function randcropscale(img,ich,mdlH,mdlW)
+  local  h = img:size(2)
+  local  w = img:size(3)
+  local a = math.abs(torch.rand(1)[1]+torch.rand(1)[1]-1)
+  if h/mdlH<w/mdlW then
+  w=torch.round((1-a)*w+a*w*mdlH/h)
+  h=torch.round((1-a)*h+a*mdlH)
+  elseif h/mdlH>=w/mdlW then
+  w=torch.round((1-a)*w+a*mdlW)
+  h=torch.round((1-a)*h+a*h*mdlW/w)
+  end
+  img=image.scale(img,w,h,'bicubic')
+  local offsetH=torch.ceil((torch.abs(mdlH-h)+1)*torch.rand(1)[1])
+  local offsetW=torch.ceil((torch.abs(mdlW-w)+1)*torch.rand(1)[1])
+  local ima = torch.Tensor(ich,mdlH,mdlW):float()
+  ima=img:sub(1,ich,offsetH,offsetH+mdlH-1,offsetW,offsetW+mdlW-1)
+  return ima
+end
+
+
 
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> defining training procedure')
-
-local epoch
+--local epoch
 
 local function train(trainData)
 
@@ -124,37 +208,37 @@ local function train(trainData)
       -- create mini batch
       local idx = 1
       for i = t,t+opt.batchSize-1 do
-         x[idx] = trainData.data[shuffle[i]]
-         yt[idx] = trainData.labels[shuffle[i]]
+         yt[idx] = indx[shuffle[i]][1]
+         --x[idx] = randlighting( randBSC( randcropscale(trainData.data[yt[idx]][indx[shuffle[i]][2]],ich,mdlH,mdlW) ) ,indx[shuffle[i]][1])
+         --x[idx] = randBSC( randlighting(trainData.data[yt[idx]][indx[shuffle[i]][2]],indx[shuffle[i]][1]) ) 
+           x[idx] = trainData.data[yt[idx]][indx[shuffle[i]][2]]
+         --flipping
+         
+         if torch.rand(1)[1]>.5 then
+          yt[idx] = flippedlabels[yt[idx]]
+          x[idx] = image.hflip(x[idx])
+         end
          idx = idx + 1
-	
       end
-	
-
+      
+      if opt.type == 'cuda' then 
+        x = x:cuda()
+        yt = yt:cuda()
+      end
+      
       -- create closure to evaluate f(X) and df/dX
       local eval_E = function(w)
          -- reset gradients
          dE_dw:zero()
 
          -- evaluate function for complete mini batch
-	--TODO: Uncomment to recycle
---[[
-	 local xf= network:forward(x)--forwards mini-batch into model.net of 12 net excluding the FC layer
-	if opt.type == 'cuda' then 
-	   xf = xf:cuda()
-	end
 
-         local y = model:forward(xf)-- Original line: local y = model:forward(x)
---]]
---TODO: Delete following line to recycle
          local y = model:forward(x)
-
          local E = loss:forward(y,yt)
 
          -- estimate df/dW
          local dE_dy = loss:backward(y,yt)   
---TODO:Replace following Line with: model:backward(xf,dE_dy)
-         model:backward(x,dE_dy)
+         model:backward(x,dE_dy) 
 
          -- update confusion
          for i = 1,opt.batchSize do
@@ -166,7 +250,11 @@ local function train(trainData)
       end
 
       -- optimize on current mini-batch
-      optim.sgd(eval_E, w, optimState)
+      optimMethod(eval_E, w, optimState)
+      if opt.type == 'cuda' then 
+        x = x:float()
+        yt = yt:float()
+      end
    end
 
    -- time taken
@@ -178,24 +266,28 @@ local function train(trainData)
    print(confusion)
 
    -- update logger/plot
-   trainLogger:add{['% mean class accuracy (train set)'] = confusion.totalValid * 100}
+   trainLogger:add{['% mean class accuracy (train set)'] = confusion.averageValid * 100}
+   trainvldLogger:add{['% total class accuracy (train set)'] = confusion.totalValid * 100}
    if opt.plot then
       trainLogger:style{['% mean class accuracy (train set)'] = '-'}
       trainLogger:plot()
    end
 
    -- save/log current net
+--[[
    local filename = paths.concat(opt.save, 'model.net')
    os.execute('mkdir -p ' .. sys.dirname(filename))
    print('==> saving model to '..filename)
    model1 = model:clone()
    --netLighter(model1)
    torch.save(filename, model1)
-
+--]]
    -- next epoch
    confusion:zero()
    epoch = epoch + 1
+   return epoch
 end
 
 -- Export:
+
 return train

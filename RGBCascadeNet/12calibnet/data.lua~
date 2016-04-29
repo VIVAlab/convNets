@@ -47,8 +47,7 @@ local crdnlty=torch.Tensor(numblbls,2)-- to store training data lengths and test
 
 ---------loop to load ALL data
 for lbl=1,numblbls do --labels
-imageslist, imageslistt, crdnlty[{lbl,1}], crdnlty[{lbl,2}] = loadDataFiles('/home/jblan016/FaceDetection/dataset/data/cropped/'..lbl..'/')
---imagelistt is wrong? should be last 24384 files: Answer NO its ok,imagelistt is the last half(if p=.5) of files for the popen ORDER which is NOT linearly continuous
+imageslist, imageslistt, crdnlty[{lbl,1}], crdnlty[{lbl,2}] = loadDataFiles('/home/jblan016/FaceDetection/dataset/data/croppednotdup/'..lbl..'/')-- TODO: 
 	if lbl==1 then
 	
 		      trdata = torch.Tensor(crdnlty[{lbl,1}], ivch, desImaX, desImaY):fill(0)

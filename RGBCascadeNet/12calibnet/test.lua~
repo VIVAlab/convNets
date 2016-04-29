@@ -70,7 +70,8 @@ function test(testData)
       end
 
       -- test sample
-      local preds = model:forward(network:forward(inputs)) --Original line:local preds = model:forward(inputs)
+	--TODO: replace the following line to recycle with: local preds = model:forward(network:forward(inputs))
+      local preds = model:forward(inputs) --Original line:local preds = model:forward(inputs)
 
       -- confusion
       for i = 1,opt.batchSize do
