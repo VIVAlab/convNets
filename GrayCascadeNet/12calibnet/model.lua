@@ -6,26 +6,7 @@ print('Model')
 torch.setdefaulttensortype('torch.FloatTensor')
 
 if  (opt.load ~= "") then
-    network1 = torch.load(opt.load)
---[[
-model = nn.Sequential()
-model:add(network1.modules[1])
-model:add(nn.Dropout())
-	for i=2,4 do
-		model:add(network1.modules[i])
-	end
-model:add(nn.Dropout())
-	for i=5,7 do
-		model:add(network1.modules[i])
-	end
-model:add(nn.Dropout())
-model:add(network1.modules[8])
-	if opt.type=='cuda' then
-		model:cuda()
-	end
-network1=nil
-
---]]
+    model = torch.load(opt.load)
     print(sys.COLORS.blue .. '**Pre-trained model loaded**') 	
 
 
@@ -48,9 +29,7 @@ model:add(nn.LogSoftMax())
 end
 -- Loss: NLL
 loss = nn.ClassNLLCriterion()
-if opt.type=='cuda' then
-		model:cuda()
-end
+
 
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> here is the CNN:')
