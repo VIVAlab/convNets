@@ -67,8 +67,8 @@ print(sys.COLORS.red ..  '==> defining some tools')
 local confusion = optim.ConfusionMatrix(classes)
 
 -- Log results to files
-local trainLogger = optim.Logger(paths.concat(opt.save, 'train_'..opt.fold..'V.log'))
-local trainvldLogger = optim.Logger(paths.concat(opt.save, 'trainvld_'..opt.fold..'V.log'))
+local trainLogger = optim.Logger(paths.concat(opt.save, 'train_'..opt.fold..'V'..opt.logid..'.log'))
+local trainvldLogger = optim.Logger(paths.concat(opt.save, 'trainvld_'..opt.fold..'V'..opt.logid..'.log'))
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> flattening model parameters')
 

@@ -25,8 +25,8 @@ local ich=3
 -- This matrix records the current confusion across classes
 local confusion = optim.ConfusionMatrix(classes)
 -- Logger:
-local testLogger = optim.Logger(paths.concat(opt.save, 'test_'..opt.fold..'V.log'))
-local testvldLogger = optim.Logger(paths.concat(opt.save, 'testvld_'..opt.fold..'V.log'))
+local testLogger = optim.Logger(paths.concat(opt.save, 'test_'..opt.fold..'V'..opt.logid..'.log'))
+local testvldLogger = optim.Logger(paths.concat(opt.save, 'testvld_'..opt.fold..'V'..opt.logid..'.log'))
 local maxaverageValid=0;--initialisation in percent
 -- Batch test:
 local inputs = torch.Tensor(opt.batchSize,ich, 
@@ -156,7 +156,7 @@ function test(testData)
    if opt.saveres==1 then
    if maxaverageValid<confusion.averageValid * 100 then
      maxaverageValid=confusion.averageValid * 100
-     local filename = paths.concat(opt.save, 'model'..opt.fold..'V.net')
+     local filename = paths.concat(opt.save, 'model'..opt.fold..'.net')
      os.execute('mkdir -p ' .. sys.dirname(filename))
      print(sys.COLORS.blue ..'==> saving model to '..filename)
      model1 = model:clone()

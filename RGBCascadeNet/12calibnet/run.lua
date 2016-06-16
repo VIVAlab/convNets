@@ -36,6 +36,8 @@ opt = lapp[[
    -o,--save               (default results)     save directory
       --patches            (default all)         percentage of samples to use for testing'
       --visualize                                visualize dataset
+   -x,--epochstop          (default 400)         stops training when reaches this number of epochs
+   -y,--logid              (default 1)           label for the log files
 ]]
 ---l,--load		   (default "")          load old model by providing address
 -- nb of threads and fixed seed (for repeatable experiments)
@@ -62,9 +64,17 @@ local test  = require 'test'
 print(sys.COLORS.red .. '==> training!')
 epoch = 0
 while true do
+   if epoch<40 then
+     opt.learningRate=1e-2
+   elseif epoch>=40 and epoch<80 then
+     opt.learningRate=1e-3
+   elseif epoch>=80 then
+     opt.learningRate=1e-4
+   end
    epoch = train(data.trainData,P)
    test(data.testData)
-   if epoch>400 then
+
+   if epoch>opt.epochstop then
    break
    end
 end

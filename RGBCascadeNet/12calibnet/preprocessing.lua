@@ -61,7 +61,7 @@ for i,channel in ipairs(channels) do
   trainStd=0
   for j = 1, numlbls do
      trainMean=trainMean+trainData.data[j][{{},i,{},{} }]:mean()
-     trainStd=trainStd+trainData.data[j][{{},i,{},{} }]:mean()
+     trainStd=trainStd+trainData.data[j][{{},i,{},{} }]:std()
   end
   trainMean=trainMean/numlbls
   trainStd=trainStd/numlbls
@@ -70,7 +70,7 @@ for i,channel in ipairs(channels) do
   testStd=0
   for j = 1, numlbls do
      testMean=testMean+testData.data[j][{{},i,{},{} }]:mean()
-     testStd=testStd+testData.data[j][{{},i,{},{} }]:mean()
+     testStd=testStd+testData.data[j][{{},i,{},{} }]:std()
   end
   testMean=testMean/numlbls
   testStd=testStd/numlbls

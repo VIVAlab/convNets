@@ -2,137 +2,227 @@
 require 'image'   -- to visualize the dataset
 require 'math'
 ----------------------------------------------------------------------
-local p=.9-- the (# training data)/(#test+training data) ratio
--- TODO insert a cycling function to move the training data set through the whole data set. For metaparameter optimisation.
---sizelim description :size limit upon training AND test set
-		--that is p*sizelim~~number of trainingdata
-		-- and(1-p)*sizelim~~number of testdata 
-function loadDataFiles(face_dir)
-    local i,train,test,popen = 0, {},{}, io.popen  
-    for filename in popen('ls -A "'..face_dir..'"' ):lines() do --count number of pics in file
-	   i = i + 1
-	if i>opt.sizelim then
-		break
-	end
-    end 
-	local totdata=math.floor(i*p)/p --total data amount usable for p to work
-	local traindatanum=math.floor(i*p) --training data number
-	local testdatanum=totdata-traindatanum --test data number
-	local i,popen = 0, io.popen --reset count
- 
-    for filename in popen('ls -A "'..face_dir..'"' ):lines() do --read files
-	i=i+1
-	if i<=totdata then
-		if i<=traindatanum then
-		train[i] = face_dir..filename
-		elseif (i>traindatanum) then
-		test[i-traindatanum] = face_dir..filename
+  torch.manualSeed(1234)
 
-		end
-	else 
-		break
-	end
-    end
-	
-    return train,test,traindatanum,testdatanum
+
+--io.stdin:read'*l'
+function loadDataFiles(class_dir)
+    local i,t,popen = 0, {}, io.popen  
+    for filename in popen('ls -A "'..class_dir..'"' ):lines() do
+	i = i + 1
+	t[i]=class_dir..filename
+    end 
+    return t, i
 end
+
+function ShuffleAndDivideSets(List,SizeImageList)
+
+  local MaxSize=math.min(SizeImageList,opt.TotNumberperLbl)
+
+  local shuffle=torch.randperm(MaxSize)
+  local TrainSize=math.ceil((1-opt.setSplit)*MaxSize)
+
+  local TestSize=MaxSize-TrainSize
+  local masktest = torch.ByteTensor(MaxSize):fill(0)
+  masktest:narrow(1,1+(opt.fold-1)*TestSize,TestSize):fill(1)
+  local teshuffle=shuffle[masktest]
+
+  local trshuffle=shuffle[torch.add(-masktest,1)]
+
+  local trainList={}
+  local testList={}
+  for i=1,TrainSize do
+    trainList[i]=List[trshuffle[i]]
+
+  end
+
+  for i=1,TestSize do
+    testList[i]=List[teshuffle[i]]
+  end
+
+return trainList, testList, TrainSize, TestSize
+end
+
+function loadscaleimage(imgaddress,ich,H,W)
+    local img =  image.loadPNG(imgaddress):float()--will return a --I(3xHxW)
+
+    local s=img:size() --s={ich,H',W'}
+    if opt.warp=='false' then
+
+      if s[3]/W<s[2]/H then
+        img=image.scale(img,W,torch.round(s[2]*W/s[3]),'bicubic')
+      elseif s[3]/W>=s[2]/H then
+        img=image.scale(img,torch.round(s[3]*H/s[2]),H,'bicubic')
+      end
+    else 
+      img=image.scale(img,W,H,'bicubic') 
+    end
+  if ich == 3 then
+    if img:size(1)==4 then
+      print(imgaddress..'4 channels')
+      img = img[{{1,3},{},{}}]:clone()
+    elseif img:size(1) == 1 then 
+      img=torch.repeatTensor(img,ich,1,1)
+    end
+  end
+
+return img
+end
+
+
 
 -----------------------------------------------------------------------
 
+local Width = 48  --Image Width
+local Height =48 --Image Height
+-- note no scaling done 
+local mdlWidth = 48  --Model input Width
+local mdlHeight = 48 --Model input Height
 
-local desImaX = 48  --Image Width
-local desImaY = 48  --Image Height
-local ivch = 1
-local numblbls=45 -- TODO eventually put a function that counts the number of folders to make the numblbls reading automatic
-local crdnlty=torch.Tensor(numblbls,2)-- to store training data lengths and testdata lengths for each label respectively [#trainData_i,#testData_i],i in [1,45]
-
+local ich = 3
+local numblbls=45 
+classes={}
+for i=1,numblbls do
+classes[i]=''..i..''
+end
 ---------loop to load ALL data
+
+trdata={}
+trlabels={}
+tedata={}
+telabels={}
+trsize={}
+tesize={}
+imdir='/home/jblan016/FaceDetection/Cascade/dataset/data/cropped/'
 for lbl=1,numblbls do --labels
-imageslist, imageslistt, crdnlty[{lbl,1}], crdnlty[{lbl,2}] = loadDataFiles('/home/jblan016/FaceDetection/dataset/data/cropped/'..lbl..'/')
---imagelistt is wrong? should be last 24384 files: Answer NO its ok,imagelistt is the last half of files for the popen ORDER which is NOT linearly continuous
-	if lbl==1 then
-	
-		      trdata = torch.Tensor(crdnlty[{lbl,1}], ivch, desImaX, desImaY):fill(0)
-		      trlabels = torch.Tensor(crdnlty[{lbl,1}]):fill(lbl)
-		      trsize = crdnlty[{lbl,1}] 
-		   
-	 
-		      tedata = torch.Tensor(crdnlty[{lbl,2}], ivch, desImaX, desImaY):fill(0)
-		      telabels = torch.Tensor(crdnlty[{lbl,2}]):fill(lbl)
-		      tesize = crdnlty[{lbl,2}]
 
-		for j,filename in ipairs(imageslist) do
-			print(filename)
-			local im =  image.load(filename):float()
-			im =  image.scale(im,desImaX,desImaY)
-			trdata[j] = image.rgb2yuv(im)
-		end
-		imageslist = nil
-   		print('train data loaded for label '..lbl)
-	
-		for j,filename in ipairs(imageslistt) do
-			local im =  image.load(filename):float()
-			im =  image.scale(im,desImaX,desImaY)
-			tedata[j] = image.rgb2yuv(im)
-		end
-		print('test data loaded for label '..lbl)		
-	   	imageslistt = nil
+    imageslist, SizeImageList = loadDataFiles(imdir..classes[lbl]..'/')
 
-	else
-		
-	      	trdata = torch.cat(trdata,torch.Tensor(crdnlty[{lbl,1}], ivch, desImaX, desImaY):fill(0),1)
-	      	trlabels = torch.cat(trlabels,torch.Tensor(crdnlty[{lbl,1}]):fill(lbl),1)
-	      	trsize = trlabels:size()[1]
+    imageslist, imageslistt, trsz, tesz = ShuffleAndDivideSets(imageslist,SizeImageList)
+
+    trdata[lbl] = torch.Tensor(trsz, ich, Height, Width)
+    trlabels[lbl] = torch.Tensor(trsz):fill(lbl)
+    trsize[lbl] = trsz
+
+    tedata[lbl] = torch.Tensor(tesz, ich, Height, Width)
+    telabels[lbl] = torch.Tensor(tesz):fill(lbl)
+    tesize[lbl] = tesz
 	   
-
-	      	tedata = torch.cat(tedata,torch.Tensor(crdnlty[{lbl,2}], ivch, desImaX, desImaY):fill(0),1)
-	      	telabels = torch.cat(telabels,torch.Tensor(crdnlty[{lbl,2}]):fill(lbl),1)
-	      	tesize = telabels:size()[1]
-			   
-		for j,filename in ipairs(imageslist) do
-			print(filename)
-			local im =  image.load(filename):float()
-			im =  image.scale(im,desImaX,desImaY)
-			trdata[j+trsize-crdnlty[{lbl,1}]] = image.rgb2yuv(im)
-			
-		end
-		imageslist = nil
-   		print('train data loaded for label '..lbl)
-
-	
-		for j,filename in ipairs(imageslistt) do
-			print(filename)
-			local im =  image.load(filename):float()
-			im =  image.scale(im,desImaX,desImaY)
-			tedata[j+tesize-crdnlty[{lbl,2}]] = image.rgb2yuv(im)
-		end
-		imageslistt = nil
-   		print('test data loaded for label '..lbl)
-
-	--NOTE: memory intensive 45 labels for large images(note large in this specific case) is very memory intensive consider partitioning
-	end
+    for j,filename in ipairs(imageslist) do
+	--print(filename)
+	trdata[lbl][j] = loadscaleimage(filename,ich,Height,Width)
+    end
+    imageslist = nil
+    print('train data loaded for label '..lbl)
+    for j,filename in ipairs(imageslistt) do
+        --print(filename)
+        tedata[lbl][j] = loadscaleimage(filename,ich,Height,Width)
+    end
+imageslistt = nil
+print('test data loaded for label '..lbl)
 	
 end
 
+--PCA--------------------------------
+
+P={}
+local X = torch.Tensor()
+if ich == 3 then
+  local S = torch.Tensor(ich,ich)
+  local P1=torch.Tensor()
+  local P2=torch.Tensor()
+  local P3=torch.Tensor()
+
+  for lbl=1,numblbls do
+   P[lbl]={}
+   P1 = torch.Tensor(ich,Height,Width):fill(0)
+   P2 = torch.Tensor(ich,Height,Width):fill(0)
+   P3 = torch.Tensor(ich,Height,Width):fill(0)
+   X = torch.Tensor(trsize[lbl],ich)
+      for ix=1,mdlWidth do
+        for iy=1,mdlHeight do
+          for k=1,ich do
+            X[{ {},k}] = (trdata[lbl])[{{},k,iy,ix }]-(trdata[lbl])[{{},k,iy,ix }]:mean()
+          end
+         S = (X:t())*X 
+         S= torch.div(S,trsize[lbl]-1) --sample covariance matrix
+         U,sigs,V = torch.svd(S)
+         P1[{{},iy,ix}]=torch.mul(U[{{},1}],sigs[1])
+         P2[{{},iy,ix}]=torch.mul(U[{{},2}],sigs[2])
+         P3[{{},iy,ix}]=torch.mul(U[{{},3}],sigs[3])
+        end
+      end
+    P[lbl][1]=P1
+    P[lbl][2]=P2
+    P[lbl][3]=P3
+    P1=nil
+    P2=nil
+    P3=nil
+  print('PCA for label '..lbl..' is done.')
+  end
+elseif ich == 1 then
+  local S = torch.Tensor(ich,ich)
+  local P1=torch.Tensor()
+
+  for lbl=1,numblbls do
+   P[lbl]={}
+   P1 = torch.Tensor(ich,Height,Width):fill(0)
+
+   X = torch.Tensor(trsize[lbl],ich)
+
+      for ix=1,mdlWidth do
+        for iy=1,mdlHeight do
+          for k=1,ich do
+            X[{ {},k}] = (trdata[lbl])[{{},k,iy,ix }]-(trdata[lbl])[{{},k,iy,ix }]:mean()
+          end
+         S = (X:t())*X 
+         S= torch.div(S,trsize[lbl]-1) --sample covariance matrix
+         U,sigs,V = torch.svd(S)
+         P1[{{},iy,ix}]=torch.mul(U[{{},1}],sigs[1])
+        end
+      end
+    P[lbl][1]=P1
+    P1=nil
+   print('PCA for label '..lbl..' is done.')
+  end
+end
+
+print('\nThe PC class conditionals are\n')
+print(P)
+print()
+
+torch.save('./results/P.dat',P)
+U=nil
+S=nil
+V=nil
+X=nil
+------------------------------------
+---------
+trSize=0
+teSize=0
+for lbl=1,numblbls do
+print(trsize[lbl])
+trSize=trSize+trsize[lbl]
+teSize=teSize+tesize[lbl]
+end
 
 trainData = {
-		      data=trdata,
-		      labels=trlabels,
-		      size = function() return trlabels:size()[1] end
-		   }
-	 testData = {
-		      data=tedata,
-		      labels=telabels,
-		      size = function() return telabels:size()[1] end
-		   }
-			trdata = nil
-		      	trlabels = nil
-		      	tedata = nil
-		      	telabels = nil
----------
+	      data=trdata,
+	      labels=trlabels,
+	      size = function() return trSize end
+	   }
+ testData = {
+	      data=tedata,
+	      labels=telabels,
+	      size = function() return teSize end
+	   }
 
-trSize=trainData.labels:size()[1]
-teSize=testData.labels:size()[1]
+
+trdata = nil
+trlabels = nil
+tedata = nil
+telabels = nil
+
 
 -- Displaying the dataset architecture ---------------------------------------
 print(sys.COLORS.red ..  'Training Data:')
@@ -143,21 +233,22 @@ print(sys.COLORS.red ..  'Test Data:')
 print(testData)
 print()
 
--- Preprocessing -------------------------------------------------------------
-dofile 'preprocessing.lua'
-print('preprocessing done')
 
+-- Preprocessing -------------------------------------------------------------
+ dofile 'preprocessing.lua'
+print('preprocessing done')
+trdatamiddle = nil
 trainData.size = function() return trSize end  
 testData.size = function() return teSize end	
 
--- classes: GLOBAL var!
---classes = {'face','backg'}  --TODO change to {'1','2',3',...,'45'} automatically
-classes = {'1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25','26','27','28','29','30','31','32','33','34','35','36','37','38','39','40','41','42','43','44','45'}
+
 -- Exports -------------------------------------------------------------------
 return {
    trainData = trainData,
    testData = testData,
    mean = mean,
    std = std,
-   classes = classes
+   classes = classes,
+   P
+   
 }
