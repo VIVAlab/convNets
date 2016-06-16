@@ -6,6 +6,7 @@ function getCoordinates(args)
    local step_height = args.step_height
    local dim_width_orig = args.dim_width
    local dim_height_orig = args.dim_height
+
    local dim_width = math.floor(dim_width_orig*scales[1])
    local dim_height = math.floor(dim_height_orig*scales[1])
    -- we define the coordinates table, which we will fill-in
@@ -31,7 +32,6 @@ function getCoordinates(args)
    local max_height = dim_height
 
    -- fill the coordinates table and get the size for the big pack
-
    for i=2,#scales,1 do
 
       dim_width = math.floor(dim_width_orig*scales[i])
@@ -54,7 +54,7 @@ function getCoordinates(args)
       max_width = math.max(max_width, coordinates[i][3])
       max_height = math.max(max_height, coordinates[i][4])
    end
-print('max_width='..max_width)
+
    return coordinates, max_width, max_height
 end
 
@@ -118,8 +118,8 @@ local function getGlobalSizes(args)
    local ker_width = right_width1 - left_width1 +1
    local ker_height = right_height1 - left_height1 +1
 
-   local step_width = 1--1
-   local step_height = 1--1
+   local step_width = 1
+   local step_height = 1
 
    -- global step = MUL(step_1, step_2, ... , step_n)
    for i = 1, #sizes_tbl do
@@ -149,43 +149,27 @@ function PyramidPacker:__init(network, scales)
 end
 
 function PyramidPacker:forward(input)
-   self.step_height = 2--4--2
-   self.step_width = 2--4--2
+   self.step_height = 4
+   self.step_width = 4
    if ((input:size(3) ~= self.dim_width) or (input:size(2) ~= self.dim_height)) then
       self.dim_height = input:size(2)
       self.dim_width = input:size(3)
-      self.nScales = {}
-      local j = 0
-      for i=1,#self.scales,1 do
-		dim_width = math.floor(self.dim_width*self.scales[i])
-		dim_height = math.floor(self.dim_height*self.scales[i])
-		if (dim_width >= 12 and dim_height >=12) then
-			j = j+1
-			self.nScales[j] = self.scales[i]
-		else		
-			return
-		end
-      end
       self.coordinates, self.max_width, self.max_height =
          getCoordinates({dim_width = self.dim_width, dim_height = self.dim_height,
-                         scales = self.nScales,
+                         scales = self.scales,
                          step_width = self.step_width, step_height = self.step_height})
-   else
-   return
    end
-   if(input:size(1) ~= dimz) then--dim_z) then
-       self.dimz = input:size(1) 
-   end
+   if(input:size(1) ~= dim_z) then self.dimz = input:size(1) end
    self.output:resize(self.dimz, self.max_height, self.max_width):zero()
    -- using the coordinates table fill the pack with different scales
    -- if the pack and coordinates already exist for the same input size we go directly to here
-   for i = 1,#self.nScales do
+   for i = 1,#self.scales do
       local temp = self.output:narrow(3,self.coordinates[i][1],self.coordinates[i][5])
       temp = temp:narrow(2,self.coordinates[i][2],self.coordinates[i][6])
       image.scale(temp, input, 'bilinear')
    end
 
-   return self.output, self.coordinates, self.nScales
+   return self.output, self.coordinates
 end
 
 function PyramidPacker:backward(input, gradOutput)
@@ -194,9 +178,9 @@ end
 
 function PyramidPacker:write(file)
    parent.write(self,file)
-   file:writeDouble(#self.nScales)
-   for i = 1,#self.nScales do
-      file:writeDouble(self.nScales[i])
+   file:writeDouble(#self.scales)
+   for i = 1,#self.scales do
+      file:writeDouble(self.scales[i])
    end
 end
 

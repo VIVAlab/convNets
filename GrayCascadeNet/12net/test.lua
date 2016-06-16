@@ -26,7 +26,7 @@ local ich = 1
 -- This matrix records the current confusion across classes
 local confusion = optim.ConfusionMatrix(classes)
 -- Logger:
-local testLogger = optim.Logger(paths.concat(opt.save, 'testAvgValid.log'))
+local testLogger = optim.Logger(paths.concat(opt.save, 'testAvgValid'..opt.logid..'.log'))
 local maxaverageValid=0;--initialisation in percent
 -- Batch test:
 local inputs = torch.Tensor(opt.batchSize,ich,mdlHeight,mdlWidth)

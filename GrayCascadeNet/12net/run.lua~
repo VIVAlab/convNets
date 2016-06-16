@@ -15,18 +15,19 @@ require 'nn'      -- provides all sorts of trainable modules/layers
 print(sys.COLORS.red ..  '==> processing options')
 
 opt = lapp[[
-   -a,--trainingratio      (default 3)           ratio of negative over positive examples in training batch >=1
+   -a,--trainingratio      (default 1)           ratio of negative over positive examples in training batch >=1
    -b,--batchSize          (default 128)         batch size
    -c,--setSplit           (default .1)          ratio of #test data/#test+training data
    -d,--learningRateDecay  (default 1e-7)        learning rate decay (in # samples)
+   -f,--fold               (default 1)           fold number
    -g,--optimization       (default 'sgd')       optimization method: choose 'sgd','cg' or 'lbfgs'
    -i,--devid              (default 1)           device ID (if using CUDA)
    -k,--maxIter            (default 1e2)         maximum number of iterations
-   -l,--load		   (default "")          load old model by providing address
+   -l,--load		       (default "")          load old model by providing address
       --patches            (default all)         percentage of samples to use for testing'
       --visualize                                visualize dataset
    -m,--momentum           (default 0.1)         momentum
-   -n,--backgroundNumber   (default 100e3)        background number for training
+   -n,--CeilNumber         (default 100e3)       background number for training
    -o,--save               (default results)     save directory
    -p,--type               (default float)       float or cuda
    -r,--learningRate       (default 1e-3)        learning rate
@@ -61,6 +62,6 @@ local test  = require 'test'
 print(sys.COLORS.red .. '==> training!')
 
 while true do
-   train(data.trainDataPOS,data.trainDataNEG)
+   train(data.trainData)
    test(data.testData)
 end

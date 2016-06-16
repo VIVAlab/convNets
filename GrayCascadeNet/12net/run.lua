@@ -36,6 +36,8 @@ opt = lapp[[
    -u,--dropout            (default 0.5)         dropout amount
    -v,--patchsidepercent   (default 1)           length of positive data patch for generalisation. in ]0,1] 0 is pixel sized patch, recommended not below .875     
    -w,--weightDecay        (default 1e-5)        L2 penalty on the weights
+   -x,--epochstop          (default 400)         stops training when reaches this number of epochs
+   -y,--logid              (default 1)           label for the log files
 ]]
 
 -- nb of threads and fixed seed (for repeatable experiments)
@@ -60,8 +62,18 @@ local test  = require 'test'
 
 ----------------------------------------------------------------------
 print(sys.COLORS.red .. '==> training!')
+local epchcnt=0
+while epchcnt<3*opt.epochstop do
+if epchcnt <=opt.epochstop then --fast learning
+opt.learningRate=1e-2
+elseif epchcnt >opt.epochstop and epchcnt <=2*opt.epochstop then --normal learning
+opt.learningRate=1e-3
+elseif epchcnt >2*opt.epochstop and epchcnt <3*opt.epochstop then --fine tuning
+opt.learningRate=1e-4
+opt.weightDecay=1e-6
+end
+epchcnt=epchcnt+1
 
-while true do
    train(data.trainData)
    test(data.testData)
 end

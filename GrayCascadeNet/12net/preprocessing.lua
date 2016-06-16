@@ -70,8 +70,9 @@ for i,channel in ipairs(channels) do
      testData.data[lbl][k][{ i,{},{} }]:div(std[i])
      end
 end
-
-
+torch.save('results/mean.dat',mean)
+torch.save('results/std.dat',std)
+print('mean='..mean[1],'std='..std[1])
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> verify statistics:')
 
@@ -124,10 +125,9 @@ for i,channel in ipairs(channels) do
    print('       test data, '..channel..'-channel, standard deviation:     ' .. testStd)
 
 end
+print('ctrl+C to stop, enter to continue')
+io.stdin:read'*l'
 
-
-torch.save('results/mean.dat',mean)
-torch.save('results/std.dat',std)
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> visualizing data:')
 
