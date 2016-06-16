@@ -8,50 +8,86 @@ print(sys.COLORS.red ..  '==> preprocessing data')
 
 local channels = {'y'}
 
+local Width = 48  
+local Height = 48 
 -- Normalize each channel, and store mean/std
 -- per channel. These values are important, as they are part of
 -- the trainable parameters. At test time, test data will be normalized
 -- using these values.
 print(sys.COLORS.red ..  '==> preprocessing data: global normalization:')
+
 local mean = {}
 local std = {}
+local numlbls=45
+local cnt=0
+
+-- compute means/stds
 for i,channel in ipairs(channels) do
-   -- normalize each channel globally:
-   mean[i] = trainData.data[{ {},i,{},{} }]:mean()
-   std[i] = trainData.data[{ {},i,{},{} }]:std()
-   trainData.data[{ {},i,{},{} }]:add(-mean[i])
-   trainData.data[{ {},i,{},{} }]:div(std[i])
+  mean[i]=0
+  std[i]=0
+  for j = 1, numlbls do
+     mean[i] = mean[i]+trainData.data[j][{{},i,{},{} }]:mean()
+     std[i]  = mean[i]+trainData.data[j][{{},i,{},{} }]:std()
+  end
+  mean[i]=mean[i]/numlbls
+  std[i]=std[i]/numlbls
+end
+
+-- Normalize each channel globally:
+for i,channel in ipairs(channels) do
+  for j = 1, numlbls do
+     trainData.data[j][{ {},i,{},{} }]:add(-mean[i])
+     trainData.data[j][{ {},i,{},{} }]:div(std[i])
+  end
 end
 
 -- Normalize test data, using the training means/stds
 for i,channel in ipairs(channels) do
-   -- normalize each channel globally:
-   testData.data[{ {},i,{},{} }]:add(-mean[i])
-   testData.data[{ {},i,{},{} }]:div(std[i])
+  for j = 1, numlbls do
+     testData.data[j][{ {},i,{},{} }]:add(-mean[i])
+     testData.data[j][{ {},i,{},{} }]:div(std[i])
+  end
 end
-torch.save('results/mean.dat',mean)
-torch.save('results/std.dat',std)
+
+
 
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> verify statistics:')
 
--- It's always good practice to verify that data is properly
--- normalized.
+
 
 for i,channel in ipairs(channels) do
-   local trainMean = trainData.data[{ {},i }]:mean()
-   local trainStd = trainData.data[{ {},i }]:std()
+  trainMean=0
+  trainStd=0
+  for j = 1, numlbls do
+     trainMean=trainMean+trainData.data[j][{{},i,{},{} }]:mean()
+     trainStd=trainStd+trainData.data[j][{{},i,{},{} }]:std()
+  end
+  trainMean=trainMean/numlbls
+  trainStd=trainStd/numlbls
 
-   local testMean = testData.data[{ {},i }]:mean()
-   local testStd = testData.data[{ {},i }]:std()
+  testMean=0
+  testStd=0
+  for j = 1, numlbls do
+     testMean=testMean+testData.data[j][{{},i,{},{} }]:mean()
+     testStd=testStd+testData.data[j][{{},i,{},{} }]:std()
+  end
+  testMean=testMean/numlbls
+  testStd=testStd/numlbls
 
    print('       training data, '..channel..'-channel, mean:               ' .. trainMean)
    print('       training data, '..channel..'-channel, standard deviation: ' .. trainStd)
 
    print('       test data, '..channel..'-channel, mean:                   ' .. testMean)
    print('       test data, '..channel..'-channel, standard deviation:     ' .. testStd)
+
+  -- print('       prenormalized training data, '..channel..'-channel, mean:               ' .. mean[i])
+  -- print('       prenormalized test data, '..channel..'-channel, standard deviation: ' .. std[i])
 end
 
+
+torch.save('results/mean.dat',mean)
+torch.save('results/std.dat',std)
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> visualizing data:')
 

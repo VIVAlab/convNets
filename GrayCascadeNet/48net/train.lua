@@ -15,15 +15,20 @@
 require 'torch'   -- torch
 require 'xlua'    -- xlua provides useful tools, like progress bars
 require 'optim'   -- an optimization package, for online and batch methods
-print('Train')
+require 'image'
+require 'math'
 ----------------------------------------------------------------------
 -- Model + Loss:
 local t = require 'model'
 local model = t.model
-local fwmodel = t.model
+--local fwmodel = t.model
 local loss = t.loss
+local mdlHeight=48
+local mdlWidth=48
 
-
+--------------------- Backgound scale variable ----------------
+MinFaceSize=40
+local ich = 1
 ----------------------------------------------------------------------
 -- Save light network tools:
 function nilling(module)
@@ -51,7 +56,7 @@ print(sys.COLORS.red ..  '==> defining some tools')
 local confusion = optim.ConfusionMatrix(classes)
 
 -- Log results to files
-local trainLogger = optim.Logger(paths.concat(opt.save, 'train.log'))
+local trainLogger = optim.Logger(paths.concat(opt.save, 'trainAvgValid'..opt.logid..'.log'))
 
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> flattening model parameters')
@@ -94,16 +99,13 @@ end
 print(sys.COLORS.red ..  '==> allocating minibatch memory')
 local batchPOS=math.ceil(opt.batchSize/(opt.trainingratio+1))
 local batchNEG=opt.batchSize-batchPOS
-local batchNoPOS=math.floor(trainDataPOS.data:size(1)/batchPOS)
-local batchNoNEG=math.floor(trainDataNEG.data:size(1)/batchNEG)
+local batchNoPOS=torch.floor(((trainData.data[1]:size(1)))/batchPOS)
+local batchNoNEG=torch.floor((#(trainData.data[2]))/batchNEG)
 print('b#-='..batchNoNEG)
 print('b#+='..batchNoPOS)
-local xNEG = torch.Tensor(batchNEG,trainDataNEG.data:size(2), 
-         trainDataNEG.data:size(3), trainDataNEG.data:size(4)) 
-local xPOS = torch.Tensor(batchPOS,trainDataPOS.data:size(2), 
-         trainDataPOS.data:size(3), trainDataPOS.data:size(4))   
-local x = torch.Tensor(opt.batchSize,trainDataPOS.data:size(2), 
-         trainDataPOS.data:size(3), trainDataPOS.data:size(4))   
+local xNEG = torch.Tensor(batchNEG,ich,mdlHeight,mdlWidth) 
+local xPOS = torch.Tensor(batchPOS,ich,mdlHeight,mdlWidth) 
+local x = torch.Tensor(opt.batchSize,ich,mdlHeight,mdlWidth) 
 
 local ytNEG = torch.Tensor(batchNEG)
 local ytPOS = torch.Tensor(batchPOS)
@@ -116,17 +118,23 @@ local yt = torch.Tensor(opt.batchSize)
    ytNEG=ytNEG:float()
    yt = yt:float()
 
-local shufflePOS = torch.Tensor(trainDataPOS:size(1)):fill(0)
-local shuffleNEG = torch.Tensor(trainDataNEG:size(1)):fill(0)
-if opt.type == 'cuda' then 
-   xNEG=xNEG:cuda()
-   xPOS=xPOS:cuda()
-   x = x:cuda()
+local shufflePOS = torch.Tensor((trainData.data[1]):size(1)):fill(0)
+local shuffleNEG = torch.Tensor(#(trainData.data[2])):fill(0)
 
-   ytPOS=ytPOS:cuda()
-   ytNEG=ytNEG:cuda()
-   yt = yt:cuda()
+----------------------------------------------------------------------
+--Data augmentation functions
+function randcropscale(img,ich,mdlH,mdlW)
+  local  h = img:size(2)
+  local  w = img:size(3)
+  local  F = torch.floor(torch.rand(1)[1]*math.min(w-MinFaceSize+1,h-MinFaceSize+1))+MinFaceSize
+  local offsetH = torch.ceil(torch.rand(1)[1]*(h-F+1))
+  local offsetW = torch.ceil(torch.rand(1)[1]*(w-F+1))
+  ima=img:sub(1,ich,offsetH,offsetH+F-1,offsetW,offsetW+F-1)
+  ima=image.scale(ima,mdlH,mdlW,'bicubic')
+  return ima
 end
+
+
 
 ----------------------------------------------------------------------
 print(sys.COLORS.red ..  '==> defining training procedure')
@@ -138,8 +146,15 @@ local shuffleNEG_FLAG=true
 -- data index counters
 local tNEG=0 
 local tPOS=0
-local dbggr=0
-local function train(trainDataPOS,trainDataNEG)   ----------------------=================================TRAIN============
+--[[
+local L=64
+local Lmin=torch.ceil(opt.patchsidepercent*L)
+local Lpatch=Lmin
+local di=0
+local dj=0
+]]
+
+local function train(trainData)   ----------------------=================================TRAIN============
 
    -- epoch tracker
    epochPOS = epochPOS or 1
@@ -149,17 +164,17 @@ local function train(trainDataPOS,trainDataNEG)   ----------------------========
 
    -- shuffle at each epoch
 	if shufflePOS_FLAG==true then
-    shufflePOS = torch.randperm(trainDataPOS:size(1))
+    shufflePOS = torch.randperm((trainData.data[1]):size(1))
           shufflePOS_FLAG=false
 	end
 	if shuffleNEG_FLAG==true then
-    shuffleNEG = torch.randperm(trainDataNEG:size(1))
+    shuffleNEG = torch.randperm(#(trainData.data[2]))
           shuffleNEG_FLAG=false
 	end
    -- do one epoch
    print(sys.COLORS.green .. '==> doing epoch on positive training data:') 
-   print("==> online positive data epoch # " .. epochPOS .. ' [batchSize(+) = ' .. batchPOS .. '].'..' #data(-)='..trainDataNEG.data:size(1)) 
-   print("==> online negative data epoch # " .. epochNEG .. ' [batchSize(-) = ' .. batchNEG .. '].'..' #data(+)='..trainDataPOS.data:size(1))
+   print("==> online positive data epoch # " .. epochPOS .. ' [batchSize(+) = ' .. batchPOS .. '].'..' #data(+)='..trainData.data[1]:size(1)) 
+   print("==> online negative data epoch # " .. epochNEG .. ' [batchSize(-) = ' .. batchNEG .. '].'..' #data(-)='..#(trainData.data)[2])
 
    while true do  -- batch loop --------------------------------------
       
@@ -188,30 +203,44 @@ local function train(trainDataPOS,trainDataNEG)   ----------------------========
       -- create batch for positive data
       local idx = 1
       for i = 1+batchPOS*(tPOS-1),batchPOS*(tPOS) do
-         xPOS[idx] = trainDataPOS.data[shufflePOS[i]]
-         ytPOS[idx] = trainDataPOS.labels[shufflePOS[i]]
+         xPOS[idx] = trainData.data[1][shufflePOS[i]]--image.scale(trainData.data[1][shufflePOS[i]],mdlHeight,mdlWidth)
+         ytPOS[idx] = 1
+          if torch.rand(1)[1]>.5 then
+          xPOS[idx] = image.hflip(xPOS[idx])
+         end
          idx = idx + 1
       end
+
       -- create batch for negative data
       local idx = 1
       for i = 1+batchNEG*(tNEG-1),batchNEG*(tNEG) do
-         xNEG[idx] = trainDataNEG.data[shuffleNEG[i]] ------------------
-         ytNEG[idx] = trainDataNEG.labels[shuffleNEG[i]]
+         xNEG[idx] = trainData.data[2][shuffleNEG[i]]--randcropscale(trainData.data[2][shuffleNEG[i]],ich,mdlHeight,mdlWidth) ------------------randcropscale(img,ich,mdlH,mdlW)
+         ytNEG[idx] = 2
+         if torch.rand(1)[1]>.5 then
+          xNEG[idx] = image.hflip(xNEG[idx])
+         end
          idx = idx + 1
       end
       --concat the data here
       local shuffle=torch.randperm(opt.batchSize)      
       local xtemp=torch.cat(xPOS:float(),xNEG:float(),1)
       local yttemp=torch.cat(ytPOS:float(),ytNEG:float(),1)
+
       -- create mini batch
       for i = 1,opt.batchSize do
          x[i] = xtemp[shuffle[i]]
          yt[i] = yttemp[shuffle[i]]
       end
-         if opt.type == 'cuda' then 
-         x = x:cuda()
-         yt = yt:cuda()
-         end
+
+      if opt.type == 'cuda' then 
+        xNEG=xNEG:cuda()
+        xPOS=xPOS:cuda()
+        x = x:cuda()
+
+        ytPOS=ytPOS:cuda()
+        ytNEG=ytNEG:cuda()
+        yt = yt:cuda()
+      end
       -- create closure to evaluate f(X) and df/dX
       local eval_E = function(w)
          -- reset gradients
@@ -236,25 +265,35 @@ local function train(trainDataPOS,trainDataNEG)   ----------------------========
 
       -- optimize on current mini-batch
       optimMethod(eval_E, w, optimState)
-   end---------------------------------------------------------------------------END TODO batch loop-------------------------------------
+      if opt.type == 'cuda' then 
+        xNEG=xNEG:float()
+        xPOS=xPOS:float()
+        x = x:float()
+
+        ytPOS=ytPOS:float()
+        ytNEG=ytNEG:float()
+        yt = yt:float()
+      end
+   end--------------------------------------END batch loop-------------------------------------
 
    -- time taken
    time = sys.clock() - time
-   print('==> time = '..time..'s')
-
+   --print("\n==> time = " .. (time) .. 's')
+   print("==> time = " ..time.. 's')
    -- print confusion matrix
    print(confusion)
 
    -- update logger/plot
-   trainLogger:add{['% mean class accuracy (train set)'] = confusion.totalValid * 100}
+   if (confusion.averageValid==confusion.averageValid) then
+   trainLogger:add{['% mean class accuracy (train set)'] = confusion.averageValid * 100}
+   end
    if opt.plot then
       trainLogger:style{['% mean class accuracy (train set)'] = '-'}
       trainLogger:plot()
    end
 
---commented since save is done in testing
---[[
-   -- save/log current net
+   --commented because we're saving whenever the validation set error was minimal
+   --[[-- save/log current net
    local filename = paths.concat(opt.save, 'model.net')
    os.execute('mkdir -p ' .. sys.dirname(filename))
    print('==> saving model to '..filename)

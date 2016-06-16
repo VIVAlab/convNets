@@ -5,33 +5,34 @@ require 'nn'      -- provides all sorts of trainable modules/layers
 print('Model')
 torch.setdefaulttensortype('torch.FloatTensor')
 
+if  (opt.load ~= "") then
+    model = torch.load(opt.load)
+    print(sys.COLORS.blue .. '**Pre-trained model loaded**') 	
+
+
+else	
 model = nn.Sequential()
-if  (opt.load ~= "" ) then
-    
-model = torch.load('/home/jblan016/FaceDetection/48calibnet/results/model.net')
+--Layer 1: Convolutional Layer
+model:add(nn.SpatialConvolutionMM(1,64,5,5,1,1)) -- I(1x48x48)->O(64x44x44)
+--Layer 2: Max-pooling layer +RELU
+model:add(nn.SpatialMaxPooling(3,3,2,2,1,1)) -- I(64x44x44)->O(64x22x22)
+model:add(nn.ReLU())
+--Layer 3: TODO INSERT NORMALISATION LAYER
+--Layer 4: Convolutional layer
+model:add(nn.SpatialConvolutionMM(64,64,5,5,1,1))-- I(64x22x22)->O(64x18x18)
+--Layer 5: TODO INSERT NORMALISATION LAYER
+--Layer 6: Fully connected layer +RELU
 
-if opt.type == 'cuda' then 
-   model = model:cuda()
-end
-
-    print(sys.COLORS.blue .. '**Pre-trained model loaded**') 
-else
-----------------------
-model:add(nn.SpatialConvolutionMM(1,64,5,5,1,1)) --O(64x44x44)-- #input-planes = 3, #output-planes=16, 
-
-model:add(nn.SpatialMaxPooling(3,3,2,2,1,1)) --O(64x22x22) -- MaxPooling size=3, stride=2
+model:add(nn.SpatialConvolutionMM(64,256,18,18,1,1))  --I(256x18x18)->O(256x1x1)
 model:add(nn.ReLU())
 
-
-model:add(nn.SpatialConvolutionMM(64,64,5,5,1,1)) --O(64x18x18)
-
-model:add(nn.ReLU())
--------------
-model:add(nn.SpatialConvolutionMM(64,256,18,18,1,1)) 
-model:add(nn.ReLU())
+--layer 7: labels
 model:add(nn.Reshape(256))
 model:add(nn.Linear(256,45))
 model:add(nn.LogSoftMax())
+
+
+
 
 end
 -- Loss: NLL

@@ -1,254 +1,193 @@
 require 'image'   -- to visualize the dataset
+require 'math'
 ----------------------------------------------------------------------
+  torch.manualSeed(1234)
 
+function pause()
+print('press enter to continue')
+io.stdin:read'*l'
+end
 
-function loadDataFilesPOS(face_dir)
+function loadDataFiles(dir_list)
     local i,t, popen = 0,{}, io.popen  
-	for j,fd_j in ipairs(face_dir) do
-	    for filename in popen('ls -A "'..fd_j..'"' ):lines() do
+	for j,d_j in ipairs(dir_list) do
+	    for filename in popen('ls -A "'..d_j..'"' ):lines() do
 		   i = i + 1
-	       t[i] = fd_j..filename
+	       t[i] = d_j..filename
 	    end
 	end
-    local nFaces = i;	--number of faces
-    return t,nFaces
-end
-function loadDataFilesNEG(nonface_dir)
-    local i,t, popen = 0,{}, io.popen  
-	for j,nfd_j in ipairs(nonface_dir) do
-	    for filename in popen('ls -A "'..nfd_j..'"' ):lines() do
-		   i = i + 1
-		if (i>opt.backgroundNumber) then
-			  i=i-1;	
-			  --break
-			  return t,i
-		end
-	       t[i] = nfd_j..filename
-	    end
-	end
-    local nBckg = i;	--number of backgrounds
-    return t,nBckg
+    local nObjects = i;	--number of images
+    return t,nObjects
 end
 
-function loadDataFilesTEST(face_dir,nonface_dir)
-    local i,t, popen = 0,{}, io.popen  
-	for j,fd_j in ipairs(face_dir) do
-	    for filename in popen('ls -A "'..fd_j..'"' ):lines() do
-		   i = i + 1
-	       t[i] = fd_j..filename
-	    end
-	end
-    local nFaces = i;	--number of faces
-	for j,nfd_j in ipairs(nonface_dir) do
-	    for filename in popen('ls -A "'..nfd_j..'"' ):lines() do
-		i = i + 1	
-			if (i-nFaces>opt.backgroundNumber) then
-			  i=i-1;	
-			  --break
-			  return t,nFaces,i
-			end
-		t[i] = nfd_j..filename
-	    end	
-	end
-    return t,nFaces,i
+function ShuffleAndDivideSets(List,SizeImageList)
+  local MaxSize=math.min(SizeImageList,opt.CeilNumber)
+  local shuffle=torch.randperm(MaxSize)
+  local TrainSize=math.ceil((1-opt.setSplit)*MaxSize)
+  local TestSize=MaxSize-TrainSize
+  local masktest = torch.ByteTensor(MaxSize):fill(0)
+  masktest:narrow(1,1+(opt.fold-1)*TestSize,TestSize):fill(1)
+  local teshuffle=shuffle[masktest]
+
+  local trshuffle=shuffle[torch.add(-masktest,1)]
+  local trainList={}
+  local testList={}
+  for i=1,TrainSize do
+    trainList[i]=List[trshuffle[i]]
+  end
+  for i=1,TestSize do
+    testList[i]=List[teshuffle[i]]
+  end
+return trainList, testList, TrainSize, TestSize
 end
-POStrainadresses={'/home/jblan016/FaceDetection/Cascade/dataset/train/aflw/'}--
-testadresslist={'/home/jblan016/FaceDetection/Cascade/dataset/test/faces/'}--{'/home/jblan016/FaceDetection/Cascade/dataset/test/c_faces/'}
-negtest={'/home/jblan016/FaceDetection/Cascade/dataset/test/nonfaces/'}
-negtrain={'/home/jblan016/FaceDetection/Cascade/BgGenerator/24NetPatches_negatives/','/home/jblan016/FaceDetection/Cascade/BgGenerator/AFLW_FACELESS_PATCHES/'}--}--'/home/jblan016/FaceDetection/Cascade/BgGenerator/AFLW_FACELESS_PATCHES/'
---trainadresslist={'/home/jblan016/FaceDetection/dataset/data/cropped/1/','/home/jblan016/FaceDetection/dataset/data/cropped/19/','/home/jblan016/FaceDetection/dataset/data/cropped/37/'}
-imageslistPOS,FaceNo = loadDataFilesPOS(POStrainadresses) --Positive Train Data Load
-imageslistNEG,BckgNo = loadDataFilesNEG(negtrain) --Positive Train Data Load
-imageslistt,lt,teSize = loadDataFilesTEST(testadresslist,negtest) -- Test Data Load
-local desImaX = 48  --Image Width
-local desImaY = 48  --Image Height
-local duplicfliplrTrain='false'  -- set to 'true' if we add flipped data, else 'false' to use only the original data 
-local duplicfliplrTest='false'
-local ivch = 1
-local labelFace = 1 -- label for person and background:
-local labelBg = 2 
 
-
-if (duplicfliplrTrain=='false') then
-	trainDataPOS = {
-	      data = torch.Tensor(FaceNo, ivch, desImaX, desImaY),
-	      labels = torch.Tensor(FaceNo),
-	      size = function() return FaceNo end
-	   }
-	trainDataNEG = {
-	      data = torch.Tensor(BckgNo, ivch, desImaX, desImaY),
-	      labels = torch.Tensor(BckgNo),
-	      size = function() return BckgNo end
-	   }
-	for j,filename in ipairs(imageslistPOS) do
-			print(filename)
-			local im =  image.load(filename):float()
-		if im:size(1)~=1 then
-		im =  image.scale(im,desImaX,desImaY)
-		im=image.rgb2y(im)
-		else
-		im =  image.scale(im,desImaX,desImaY)
-		end
-		trainDataPOS.data[j] = im
-		trainDataPOS.labels[j] = labelFace;
-	end
-	for j,filename in ipairs(imageslistNEG) do
-			print(filename)
-			local im =  image.load(filename):float()
-		if im:size(1)~=1 then
-		im =  image.scale(im,desImaX,desImaY)
-		im=image.rgb2y(im)
-		else
-		im =  image.scale(im,desImaX,desImaY)
-		end
-		trainDataNEG.data[j] = im
-		trainDataNEG.labels[j] = labelBg;
-	end
-
-  elseif  (duplicfliplrTrain=='true') then
-	trainDataPOS = {
-	      data = torch.Tensor(2*FaceNo, ivch, desImaX, desImaY),
-	      labels = torch.Tensor(2*FaceNo),
-	      size = function() return trSize+l end
-	   }
-	trainDataNEG = {
-	      data = torch.Tensor(BckgNo, ivch, desImaX, desImaY),
-	      labels = torch.Tensor(BckgNo),
-	      size = function() return BckgNo end
-	   }
-	for j,filename in ipairs(imageslist) do
-		print(filename)
-		local im =  image.load(filename):float()
-		if im:size(1)~=1 then
-		im =  image.scale(im,desImaX,desImaY)
-		im=image.rgb2y(im)
-		else
-		im =  image.scale(im,desImaX,desImaY)
-		end
-		trainData.data[j] = im
-		image.hflip(trainData.data[j+FaceNo], im)
-		trainData.labels[j] = labelFace;
-		trainData.labels[j+FaceNo] = labelFace;
-
-	 end
-	 for j,filename in ipairs(imageslistNEG) do
-			print(filename)
-			local im =  image.load(filename):float()
-		if im:size(1)~=1 then
-		im =  image.scale(im,desImaX,desImaY)
-		im=image.rgb2y(im)
-		else
-		im =  image.scale(im,desImaX,desImaY)
-		end
-		trainDataNEG.data[j] = im
-		trainDataNEG.labels[j] = labelBg;
-	 end
-  else
-    error("invalid operation: duplicfliplrTrain has to be either 'true' or 'false'.")
+function loadscaleimage(imgaddress,H,W)
+    local img =  image.load(imgaddress):float()--will return a --I(3xHxW)
+    if img:size(1)==1 then
+    img = img:repeatTensor(3,1,1)
+    elseif img:size(1)==4 then
+    print('imgaddress has 4 channels')
+    img = img[{{1,3},{},{}}]:clone()
+    end
+    local s=img:size() --s={ich,H',W'}
+      img=image.scale(img,W,H,'bicubic') 
+return img
 end
-   
-  
 
-   imageslistPOS = nil
-   imageslistNEG = nil
-   print('train data loaded')
-   ----------------------------------------------------
 
-if (duplicfliplrTest=='false') then
-   print(lt..' '..teSize)	
-	   testData = {
-	      data = torch.Tensor(teSize, ivch,desImaX,desImaY),
-	      labels = torch.Tensor(teSize),
-	      size = function() return teSize end
-	   }
-	for j,filename in ipairs(imageslistt) do
-			--print(filename)
-			--filename='/home/jblan016/FaceDetection/Cascade/dataset/test/c_faces/pic00001.jpg'
-			local im =  image.load(filename):float()
-		if im:size(1)~=1 then
-		im =  image.scale(im,desImaX,desImaY)
-		im=image.rgb2y(im)
-		else
-		im =  image.scale(im,desImaX,desImaY)
-		end
-			testData.data[j] = im
-			if(j <= lt) then --if it is a face
-				testData.labels[j] = labelFace;
-			else  -- if it's a Bg
-				testData.labels[j] = labelBg;
-			end
-	   end
-	   print('test data loaded')		
-	   imageslistt = nil
-elseif (duplicfliplrTest=='true') then
-print(2*lt..' '..teSize+lt)
-	testData = {
-	      data = torch.Tensor(teSize+lt, ivch,desImaX,desImaY),
-	      labels = torch.Tensor(teSize+lt),
-	      size = function() return teSize+lt end
-	   }
+-----------------------------------------------------------------------
 
-	  for j,filename in ipairs(imageslistt) do
-		--print(filename)
-		local im =  image.load(filename):float()
-		if im:size(1)~=1 then
-		im =  image.scale(im,desImaX,desImaY)
-		im=image.rgb2y(im)
-		else
-		im =  image.scale(im,desImaX,desImaY)
-		end
-		testData.data[j] = im
- 		if(j <= lt) then
-		image.hflip(testData.data[j+teSize], im)
-		testData.labels[j] = labelFace;
-		testData.labels[j+teSize] = labelFace;
-		else
-			testData.labels[j] = labelBg;
-		end
-	   end
-	   print('test data loaded')		
-	   imageslistt = nil
-else
-error("invalid operation: duplicfliplrTest has to be either 'true' or 'false'.")
+local Width = 48  --Image Width
+local Height =48 --Image Height
+-- note no scaling done 
+local mdlWidth = 48  --Model input Width
+local mdlHeight = 48 --Model input Height
+local numblbls = 2
+local ich = 1
+local datasetdir='/home/jblan016/FaceDetection/Cascade/dataset/'
+POSadresses={datasetdir..'AFLW_TrainingTest/',datasetdir..'faces/'}--,datasetdir..'c_faces_train/',datasetdir..'c_faces_test/'}--problem with loading ppm
+if ich ==1 then
+  NEGadresses={datasetdir..'CascadeData/Gray20net_48netMore/'}
+elseif ich==3 then
+  NEGadresses={datasetdir..'CascadeData/RGB20net_48netMore/'}
 end
-   
+local labelstring={'Faces','Backgrounds'}
+---------loop to load ALL data
+
+trdata={}
+trlabels={}
+tedata={}
+telabels={}
+local lbl = 1
+    imageslist, SizeImageList = loadDataFiles(POSadresses)
+    imageslist, imageslistt, trsize, tesize = ShuffleAndDivideSets(imageslist,SizeImageList)
+
+    trdata[lbl] = torch.Tensor(trsize, ich, Height, Width)
+    trlabels[lbl] = torch.Tensor(trsize):fill(lbl)
+
+    tedata[lbl] = torch.Tensor(tesize, ich, Height, Width)
+    telabels[lbl] = torch.Tensor(tesize):fill(lbl)
+	   
+    for j,filename in ipairs(imageslist) do
+	--print(filename)
+      if ich == 1 then
+	    trdata[lbl][j] = image.rgb2y(loadscaleimage(filename,Height,Width))
+      elseif ich ==3 then
+        trdata[lbl][j] = loadscaleimage(filename,Height,Width)
+      end
+    end
+    imageslist = nil
+    print('train data loaded for '..labelstring[lbl])
+
+
+    for j,filename in ipairs(imageslistt) do
+        --print(filename)
+        if ich == 1 then
+	      tedata[lbl][j] = image.rgb2y(loadscaleimage(filename,Height,Width))
+        elseif ich ==3 then
+          tedata[lbl][j] = loadscaleimage(filename,Height,Width)
+        end
+    end
+
+    imageslistt = nil
+    print('test data loaded for label '..labelstring[lbl])
+lbl = 2
+    imageslist, SizeImageList = loadDataFiles(NEGadresses)
+    imageslist, imageslistt, trsize, tesize = ShuffleAndDivideSets(imageslist,SizeImageList)
+
+
+    trdata[lbl] = {}
+    trlabels[lbl] = torch.Tensor(trsize):fill(lbl)
+
+    tedata[lbl] = {}
+    telabels[lbl] = torch.Tensor(tesize):fill(lbl)
+	   
+    for j,filename in ipairs(imageslist) do
+	trdata[lbl][j] = image.load(filename):float()
+    end
+
+    imageslist = nil
+    print('train data loaded for '..labelstring[lbl])
+
+
+    for j,filename in ipairs(imageslistt) do
+        print(filename)
+        tedata[lbl][j] = image.load(filename):float()
+--[[
+        if ich == 1 then
+	    tedata[lbl][j] = image.rgb2y(image.load(filename):float())
+      elseif ich ==3 then
+        tedata[lbl][j] = image.load(filename):float()
+      end
+--]]
+    end
+    imageslistt = nil
+    print('test data loaded for '..labelstring[lbl])
+
+
+------------------------------------
+
+trainData = {
+	      data=trdata,
+	      labels=trlabels
+	   }
+
+
+ testData = {
+	      data=tedata,
+	      labels=telabels
+	   }
+
+trdata = nil
+trlabels = nil
+tedata = nil
+telabels = nil
+
+
 -- Displaying the dataset architecture ---------------------------------------
-print(sys.COLORS.red ..  'Positive Training Data:')
-print(trainDataPOS)
+print(sys.COLORS.red ..  'Training Data:')
+print(trainData)
 print()
-print(sys.COLORS.red ..  'Negative Training Data:')
-print(trainDataNEG)
-print()
+
 print(sys.COLORS.red ..  'Test Data:')
 print(testData)
 print()
 
+
 -- Preprocessing -------------------------------------------------------------
-dofile 'preprocessing.lua'
+ dofile 'preprocessing.lua'
 print('preprocessing done')
-if (duplicfliplrTrain=='false') then
-trainDataPOS.size = function() return FaceNo end
-trainDataNEG.size = function() return BckgNo end
 
-elseif (duplicfliplrTrain=='true') then
-trainDataPOS.size = function() return 2*FaceNo end
-trainDataNEG.size = function() return BckgNo end
+classes = {}
+for i=1,numblbls do
+classes[i]=''..i..''
 end
-if (duplicfliplrTest=='false') then
-testData.size = function() return teSize end
-
-elseif (duplicfliplrTest=='true') then
-testData.size = function() return teSize+lt end
-end
--- classes: GLOBAL var!
-classes = {'face','backg'}
-
 -- Exports -------------------------------------------------------------------
 return {
-   trainDataNEG = trainDataNEG,--TODO add traindataPOS traindataNEG
-   trainDataPOS = trainDataPOS,
+   trainData = trainData,
    testData = testData,
    mean = mean,
    std = std,
-   classes = classes
+   classes = classes,
+   
 }
