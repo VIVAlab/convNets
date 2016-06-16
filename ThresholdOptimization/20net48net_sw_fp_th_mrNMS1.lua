@@ -609,7 +609,7 @@ local IM48C={}
 
 --local th= torch.cat(torch.range(100,98,-.05),torch.range(98.25,95,-.25))
 --      th= torch.cat(th,torch.range(96,0,-1))
-local th= torch.cat(torch.range(95,10,-5),torch.range(11,1,-1))
+local th= torch.cat(torch.range(55,5,-5),torch.range(4,1,-1))
 local Nth=(#th)[1]
 for nth=1,Nth do
   classth=.5--th[nth]/100-.0001
@@ -701,7 +701,7 @@ for nth=1,Nth do
           tempdets=tempdetsNEG
           end
           collectgarbage()
-
+          detsmc[i]=tempdets:clone()
           tempdets=nil
           tempdetsPOS=nil
           tempdetsNEG=nil
@@ -781,7 +781,7 @@ for nth=1,Nth do
   end -- end imagelist loop
 
 
-    testLogger:add{['% Threshold'] = nmsth,
+    testLogger:add{['% Threshold'] = nmsth1,
                    ['% True positive'] = tp,
                    ['% False positive'] = fp,
                    ['% False negative'] = fn,
