@@ -870,4 +870,3 @@ qt.connect(timer,
 widget.windowTitle = 'A Simple Frame Grabber'
 widget:show()
 timer:start()
-
