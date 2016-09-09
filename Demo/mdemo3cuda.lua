@@ -19,16 +19,19 @@ if camuse==1 then
 end
 norm_data={}
 ich = 1
-  
+  extrastride=1 -- can be 1 or 2
+min_size = 45--180
+nscales = 100
+scratio = 1/math.sqrt(2)
   gray_path='/home/jblan016/FaceDetection/Cascade/GrayCascadeNet'
   rgb_path='/home/jblan016/FaceDetection/Cascade/RGBCascadeNet'
-  filename1='12netB2'--'20net3'--'20netNoFC'--'20net2 (copy)'
+  filename1='12netFC'--'20net3'--'20netNoFC'--'20net2 (copy)'
   filename2='24net2'--'20net3'--'20netNoFC'--'20net2 (copy)'
 if ich == 1 then
   net1_dir = gray_path..'/'..filename1..'/results/'
-  calib1_dir =gray_path..'/12calibnet2/results/' --20calibnet
+  calib1_dir =gray_path..'/48calibnet/results/' --20calibnet
   net2_dir = gray_path..'/'..filename2..'/results/'
-  calib2_dir =gray_path..'/24calibnet/results/' --20calibnet
+  calib2_dir =gray_path..'/48calibnet/results/' --20calibnet
   net3_dir = gray_path..'/48net2/results/'
   calib3_dir =gray_path..'/48calibnet/results/'
 elseif ich ==3 then
@@ -41,15 +44,17 @@ elseif ich ==3 then
 end
 if string.match(filename1, "20") then
     network_fov = {20,20}
-    network_sub = 4
+    network_sub = 4*extrastride
 else
     network_fov = {12,12}
-    network_sub = 2
+    network_sub =2*extrastride
 end
 if string.match(calib1_dir, "20") then
     FilterSize1 = {20,20}
-else
+elseif string.match(calib1_dir, "12") then
     FilterSize1 = {12,12}
+elseif string.match(calib1_dir, "48") then
+    FilterSize1 = {48,48}
 end
 
 
@@ -105,8 +110,8 @@ elseif ich==1 then
   stat3calib.mean=torch.load(calib3_dir..'mean.dat')[1]
   stat3calib.std=torch.load(calib3_dir..'std.dat')[1]
 end
-
-  net1_path = net1_dir..'model.net'
+  extrastridenames={"",'2'}
+  net1_path = net1_dir..'model'..extrastridenames[extrastride]..'.net'
   calib1_path = calib1_dir..'model1.net'
   net2_path = net2_dir..'model.net'
   calib2_path = calib2_dir..'model.net'
@@ -124,19 +129,17 @@ gnmsth = .2
 threshold2=.03
 threshold2Calib=.5
 --
-useNMS = 1 --un 
-useGNMS = 1
 
-min_size = 45--180
+
+
 scale_min = network_fov[2]/min_size
 
-nscales = 10
-scratio = 1/math.sqrt(2)
-
+--[[
 function KeepPositives(detmsc,threshold1)
+  error('fix ipairs problem to prevent nil element encounter')
   local mask = torch.Tensor()
   local Ndets=0
-  for i,v in ipairs(detmsc) do
+  for i,v in ipairs(detmsc) do --wrong
   Ndets=Ndets+1
   end
   local newdetmsc={}
@@ -153,7 +156,7 @@ function KeepPositives(detmsc,threshold1)
   end
   return newdetmsc,r
 end
-
+--]]
 function pyramidscales(n_max,FilterSize,MinFaceSize,sc,imW,imH)  
   --Outputs the number of pyramid levels and the scaling factors given (FilterSize,Minimum Face Size,scaling factor step,image Height,image Width)   
   --scaling factor  0<sc<1  
@@ -181,6 +184,15 @@ function verticalExp(Dets)
   return Dets
 end
 
+function countTable(Table,M)
+    local qq=0
+    for i=1,M do
+        if #(#Table[i])>0 then
+          qq=qq+1
+        end
+    end
+    return qq
+end
 --== DEBUG FUNCTION
 
 function print_r ( t )  
@@ -425,23 +437,44 @@ function display()
 end
 
 
-function concatdets(detsMSc)
+function concatdets(detsMSc,M)
   
   local Nsc=0
   local Ntot = 0
   local dets = torch.Tensor()
-  for i,v in ipairs(detsMSc) do
-    Nsc=Nsc+1
+  local v=torch.Tensor()
+  local p=0
+  local scale_lim = torch.Tensor()
+
+  for i=1,M do
+    if #(#detsMSc[i])>0 then
+      Nsc=Nsc+1
+    end
   end
-  local scale_lim = torch.Tensor(Nsc+1):fill(0)
-  for i,v in ipairs(detsMSc) do
-    Ntot=v:size(1)+Ntot
-    scale_lim[i+1] = v:size(1)+scale_lim[i]
+  if Nsc==0 then
+    goto skipconcatdets
   end
 
-       dets = torch.Tensor(Ntot,5)
+  scale_lim = torch.Tensor(Nsc+1):fill(0)
+  
+  for i=1,M do
+    if #(#detsMSc[i])>0 then
+      p=p+1
+      Ntot=detsMSc[i]:size(1)+Ntot
+      scale_lim[p+1] = detsMSc[i]:size(1)+scale_lim[p]
+    end
+  end
+  p=0
+  dets = torch.Tensor(Ntot,5)
+  
+  for i=1,M do
+    if #(#detsMSc[i])>0 then
+      p=p+1
+      dets[{{1+scale_lim[p],scale_lim[p+1]},{}}]=detsMSc[i]:clone()
+    end
+  end
 
-  for i,v in ipairs(detsMSc) do dets[{{1+scale_lim[i],scale_lim[i+1]},{}}] = v end
+  ::skipconcatdets::
   return dets
 end
 
@@ -480,7 +513,8 @@ function cropImage(iarg, iim, isize)
     --print(iim:size())
     --print('iIy1, iIy2, iIx1, iIx2')
     --print(iIy1, iIy2, iIx1, iIx2)
-    local Ic = iim:sub(1, -1, iIy1, iIy2, iIx1, iIx2):clone()
+    local Ic=torch.Tensor()
+     Ic = iim:sub(1, -1, iIy1, iIy2, iIx1, iIx2):clone()
 
     Mask:sub(1, -1, Offsy+1, Offsy+DiIy, Offsx+1, Offsx+DiIx):fill(1)
 
@@ -494,7 +528,6 @@ end
 
 
 function applyNet(model, iimage, detections, isize, threshold,ich)
-    if(detections ~= nil) then
         local iimVec = torch.Tensor(detections:size(1), ich, isize[2], isize[1])
         detect = torch.Tensor()
         for i = 1, detections:size(1) do
@@ -502,39 +535,22 @@ function applyNet(model, iimage, detections, isize, threshold,ich)
             iimVec[i] = cropImage(detect, iimage, isize)
             
         end
-
+        local o = torch.Tensor()
         o = torch.exp(model:forward(iimVec:cuda())):double()
-        local cnt = 1
-        k = torch.LongTensor(o:size(1))
-        for i = 1, o:size(1) do
-            a = o[i][1]
-            --b = out2[i][2]
-            if (a > threshold) then
-                k[cnt] = i
-                cnt = cnt + 1
-            end  
+        local cnt = 0
+        local Mask=torch.ByteTensor()
+        local k = torch.LongTensor(o:size(1))
+        Mask=(o[{{},1}]):gt(threshold)
+        cnt=torch.sum(Mask)
+        o = o[{{},1}]
+        o = o[Mask]
+        local detectionsR = torch.Tensor()
+        if(cnt > 0) then
+            detectionsR = detections[(Mask:repeatTensor(5,1)):t()]
+            detectionsR = detectionsR:reshape(detectionsR:size(1)/5,5):clone()
+            detectionsR[{{},5}] = o:clone()
         end
-        if(cnt > 1) then
-            k = k[{{1, cnt-1}}]
-
-            local o1 = torch.Tensor()
-            o1:index(o, 1, k)
-
-            local iimVec1 = torch.Tensor()
-            iimVec1:index(iimVec, 1, k)
-
-            local detectionsR = torch.Tensor()
-            detectionsR:index(detections, 1, k)
-
-            detectionsR[{{},5}] = o1[{{},1}]    -- Set new confidence values
-
-            return detectionsR, o1, iimVec1
-        else
-            return nil, nil, nil
-        end
-    else
-        return nil, nil, nil
-    end
+    return detectionsR
 end
 
 function nms(boxes, overlap)
@@ -814,7 +830,7 @@ function process()
       detections9=nil
       goto skip2end
     end
-    detections1=(concatdets(detmsc)):clone()
+    detections1=(concatdets(detmsc,numberlevels)):clone()
     
     print("net1 done") 
 
@@ -823,7 +839,7 @@ function process()
     for r=1,numberlevels do detmsc[r] = applyCalibNet(calib1, im1c, detmsc[r], FilterSize1, threshold1Calib,ich) end
 
     print("calib1 done") 
-    detections2=(concatdets(detmsc)):clone()
+    detections2=(concatdets(detmsc,numberlevels)):clone()
     if numberlevels>0 then
       for r=1,numberlevels do 
       detmsc[r]=applyNet(net1plain,im1,detmsc[r],network_fov,-1,ich)
@@ -831,25 +847,36 @@ function process()
       end 
        print("nms1 done") 
     end
-
-    detections3=(concatdets(detmsc)):clone()
-    im2=im:clone()
-    im2=normalize(im2,stat2net,ich)
-    detmsc2={}
-    rr=0
-    if numberlevels>0 then
+    detections3=(concatdets(detmsc,numberlevels)):clone()
+    local rr=0
+    local detmsc2={}
+    if threshold2>0 then 
+      im2=im:clone()
+      im2=normalize(im2,stat2net,ich)
+      if numberlevels>0 then
+        for r=1,numberlevels do 
+          detmsc[r]=applyNet(net2,im2,detmsc[r],FilterSize2,threshold2,ich)
+          if #(#detmsc[r])>0 then
+            rr=rr+1
+            detmsc2[rr]=detmsc[r]:clone()
+          end
+        end 
+        numberlevels=rr
+      end
+      print("net2 done") 
+    else
       for r=1,numberlevels do 
-        detmsc[r]=applyNet(net2,im2,detmsc[r],FilterSize2,threshold2,ich)
-      end 
-        for i, v in ipairs(detmsc) do
-          detmsc2[i]=v:clone()
-          rr=rr+1
+        if #(#detmsc[r])>0 then
+            rr=rr+1
+            detmsc2[rr]=detmsc[r]:clone()
         end
-      numberlevels=rr
-    end
-
-    print("net2 done") 
-
+      end 
+    print("net2 skipped")
+    end 
+    --detmsc=nil
+    rr=nil
+    detections4=(concatdets(detmsc2,numberlevels)):clone()
+    
     if numberlevels==0 then 
       detections4=nil
       detections5=nil
@@ -857,35 +884,43 @@ function process()
       detections7=nil
       detections8=nil
       detections9=nil
+      print_r(detections3)
+      print_r(detmsc2)
+      print_r(detmsc)
+      pause()
       goto skip2end
     end
-    detmsc=nil
-    rr=nil
-    detections4=(concatdets(detmsc2)):clone()
     
-
+    
+    if threshold2Calib>0 then
     im2c=im:clone()
     im2c=normalize(im2c,stat2calib,ich)
     for r=1,numberlevels do detmsc2[r] = applyCalibNet(calib2, im2c, detmsc2[r], FilterSize2, threshold2Calib,ich) end
     print("calib2 done") 
-    detections5=(concatdets(detmsc2)):clone()
-
-   if numberlevels>0 then
-      for r=1,numberlevels do 
-      detmsc2[r]=applyNet(net2,im2,detmsc2[r],FilterSize2,-1,ich)
-      detmsc2[r],crap = nms(detmsc2[r],nmsth2)
-      end 
-       print("nms2 done") 
-    end
-    detections6=(concatdets(detmsc2)):clone()
+    else
+    print("calib2 skipped")
+    end 
+    detections5=(concatdets(detmsc2,numberlevels)):clone()
+   if nmsth2<1 then
+     if numberlevels>0 then
+        for r=1,numberlevels do 
+        detmsc2[r]=applyNet(net2,im2,detmsc2[r],FilterSize2,-1,ich)
+        detmsc2[r],crap = nms(detmsc2[r],nmsth2)
+        end 
+         print("nms2 done") 
+      end
+   else
+     print("nms2 skipped")    
+   end
+    detections6=(concatdets(detmsc2,numberlevels)):clone()
     
     im3=im:clone()
     im3=normalize(im3,stat3calib,ich)
     detections7=detections6:clone()
     detections7=applyNet(net3,im3,detections7,FilterSize3,threshold3,ich)
-    
     print('3net done')
-    if detections7==nil then
+    if #(#(detections7))==0 then
+      detections7=nil
       detections8=nil
       detections9=nil
       goto skip2end
@@ -920,13 +955,15 @@ end
 t = loadDataFiles('images/')
 
 app_feat = torch.load(net1_path)
+Nmods=#app_feat.modules
+
 app_feat:evaluate()
 print('cnet1 filter')
 print(app_feat)
 app_feat=app_feat:cuda()
 net1plain=app_feat:clone()
 classif=nn.Sequential()
-Nmods=#app_feat.modules
+
 classif=nn.Sequential()
 for i=1,3 do
 classif:add(app_feat.modules[Nmods-2])
