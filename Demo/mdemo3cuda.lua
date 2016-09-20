@@ -12,49 +12,87 @@ require 'cunn'
 -- Local files
 
 
-camuse=1
+camuse=0
 if camuse==1 then
    camera = image.Camera(0)
    GUI = 'g2.ui'
 end
 norm_data={}
 ich = 1
-  extrastride=1 -- can be 1 or 2
-min_size = 45--180
+  extrastride=2 -- can be 1 or 2
+min_size = 35--180
 nscales = 100
 scratio = 1/math.sqrt(2)
   gray_path='/home/jblan016/FaceDetection/Cascade/GrayCascadeNet'
   rgb_path='/home/jblan016/FaceDetection/Cascade/RGBCascadeNet'
-  filename1='12netFC'--'20net3'--'20netNoFC'--'20net2 (copy)'
-  filename2='24net2'--'20net3'--'20netNoFC'--'20net2 (copy)'
+  filename1='12netB2'-- '20net2 (copy)'--'20net3'--'20netNoFC'--'20net2 (copy)'
+  filename2='24netCAS'--'20net3'--'20netNoFC'--'20net2 (copy)'
+  filename3='48net2'
 if ich == 1 then
   net1_dir = gray_path..'/'..filename1..'/results/'
   calib1_dir =gray_path..'/48calibnet/results/' --20calibnet
   net2_dir = gray_path..'/'..filename2..'/results/'
-  calib2_dir =gray_path..'/48calibnet/results/' --20calibnet
-  net3_dir = gray_path..'/48net2/results/'
+  calib2_dir =gray_path..'/24calibnet2/results/' --20calibnet
+  net3_dir = gray_path..'/'..filename3..'/results/'
   calib3_dir =gray_path..'/48calibnet/results/'
 elseif ich ==3 then
   net1_dir   = rgb_path..'/'..filename1..'/results/'
-  calib1_dir = rgb_path..'/12calibnet/results/'
+  calib1_dir = rgb_path..'/48calibnet/results/'
   net2_dir   = gray_path..'/'..filename2..'/results/'
-  calib2_dir = gray_path..'/24calibnet/results/' --20calibnet
-  net3_dir   = rgb_path..'/48net/results/GoodResults/'
+  calib2_dir = gray_path..'/48calibnet/results/' --20calibnet
+  net3_dir   = rgb_path..'/'..filename3..'/results/GoodResults/'
   calib3_dir = rgb_path..'/48calibnet/results/'
 end
 if string.match(filename1, "20") then
-    network_fov = {20,20}
+    net1_fov = {20,20}
     network_sub = 4*extrastride
-else
-    network_fov = {12,12}
+elseif string.match(filename1, "12") then
+    net1_fov = {12,12}
     network_sub =2*extrastride
 end
+if string.match(filename2, "20") then
+    net2_fov = {20,20}
+elseif string.match(filename2, "12") then
+    net2_fov = {12,12}
+elseif string.match(filename2, "48") then
+    net2_fov = {48,48}
+elseif string.match(filename2, "24") then
+    net2_fov = {24,24}
+end
+if string.match(filename3, "20") then
+    net3_fov = {20,20}
+elseif string.match(filename3, "12") then
+    net3_fov = {12,12}
+elseif string.match(filename3, "48") then
+    net3_fov = {48,48}
+elseif string.match(filename3, "24") then
+    net3_fov = {24,24}
+end
+
 if string.match(calib1_dir, "20") then
-    FilterSize1 = {20,20}
+    calib1_fov = {20,20}
 elseif string.match(calib1_dir, "12") then
-    FilterSize1 = {12,12}
+    calib1_fov = {12,12}
 elseif string.match(calib1_dir, "48") then
-    FilterSize1 = {48,48}
+    calib1_fov = {48,48}
+end
+if string.match(calib2_dir, "20") then
+    calib2_fov = {20,20}
+elseif string.match(calib2_dir, "12") then
+    calib2_fov = {12,12}
+elseif string.match(calib2_dir, "48") then
+    calib2_fov = {48,48}
+elseif string.match(calib2_dir, "24") then
+    calib2_fov = {24,24}
+end
+if string.match(calib3_dir, "20") then
+    calib3_fov = {20,20}
+elseif string.match(calib3_dir, "12") then
+    calib3_fov = {12,12}
+elseif string.match(calib3_dir, "48") then
+    calib3_fov = {48,48}
+elseif string.match(calib3_dir, "24") then
+    calib3_fov = {24,24}
 end
 
 
@@ -110,18 +148,15 @@ elseif ich==1 then
   stat3calib.mean=torch.load(calib3_dir..'mean.dat')[1]
   stat3calib.std=torch.load(calib3_dir..'std.dat')[1]
 end
-  extrastridenames={"",'2'}
-  net1_path = net1_dir..'model'..extrastridenames[extrastride]..'.net'
+  net1_path = net1_dir..'model.net'
   calib1_path = calib1_dir..'model1.net'
-  net2_path = net2_dir..'model.net'
-  calib2_path = calib2_dir..'model.net'
+  net2_path = net2_dir..'model2.net'
+  calib2_path = calib2_dir..'model1.net'
   net3_path = net3_dir..'model.net'
   calib3_path = calib3_dir..'model1.net'
 --net1_path='/home/jblan016/FaceDetection/Cascade/GrayCascadeNet/1net/results/modelNoBN.net'
 imgcnt = 1
 
-FilterSize2={24,24}
-FilterSize3 = {48,48}
 nmsth1 = .9
 nmsth2 = .9
 gnmsth = .2
@@ -132,7 +167,7 @@ threshold2Calib=.5
 
 
 
-scale_min = network_fov[2]/min_size
+scale_min = net1_fov[2]/min_size
 
 --[[
 function KeepPositives(detmsc,threshold1)
@@ -416,14 +451,7 @@ function display()
             end
         end
     end
-    --    for i=1,#t do
-    --        win:setcolor(1,0,0)
-    --        win:rectangle(t[i][2]*network_sub, t[i][1]*network_sub, 64, 64)
-    --        win:stroke()
-    --        win:setfont(qt.QFont{serif=false,italic=false,size=16})
-    --        win:moveto(detect.x, detect.y-1)
-    --        win:show('face')
-    --    end
+
     win:gend()
     detections1 = nil
     detections2 = nil
@@ -529,9 +557,9 @@ end
 
 function applyNet(model, iimage, detections, isize, threshold,ich)
         local iimVec = torch.Tensor(detections:size(1), ich, isize[2], isize[1])
-        detect = torch.Tensor()
+        local detect = torch.Tensor()
         for i = 1, detections:size(1) do
-            local detect = detections[{i,{1,4}}]
+            detect = detections[{i,{1,4}}]
             iimVec[i] = cropImage(detect, iimage, isize)
             
         end
@@ -589,29 +617,42 @@ function nms(boxes, overlap)
 end
 
 function IoU(d,D) --compare ioU of d with D. d is a row vector and D are a row ordered list of bounding box coordinates
+
   local N=D:size(1)
   local InoU=torch.Tensor(N):fill(0) --intersection for now
   local O=torch.Tensor(N):fill(0) --overlap
   local dswap=torch.Tensor(N):fill(0)
-  local xmin2=torch.cmin(D[{{},3}],dswap:fill(d[3]))
-  local xmax1=torch.cmax(D[{{},1}],dswap:fill(d[1]))
+  local xmin2=torch.Tensor()
+  local xmax1=torch.Tensor()
   local dX=torch.Tensor()
-  dX=xmin2-xmax1
-  
-  local dx=torch.cmax(dX,dswap:fill(0))
-  local Xfit=dx:ge(0)
-  local ymin2=torch.cmin(D[{{},4}],dswap:fill(d[4]))
-  local ymax1=torch.cmax(D[{{},2}],dswap:fill(d[2]))
+  local dx=torch.Tensor()
+  local Xfit=torch.ByteTensor()
+  local ymin2=torch.Tensor()
+  local ymax1=torch.Tensor()
   local dY=torch.Tensor()
-  dY=ymin2-ymax1
-  local dy=torch.cmax(dY,dswap:fill(0))
-  local Yfit=dy:ge(0)
-  local XYfit=torch.cmul(Xfit,Yfit)--Xfit:eq(Yfit)  --XYfit =(Xfit AND Yfit)
+  local dy=torch.Tensor()
+  local Yfit=torch.ByteTensor()
+  local XYfit=torch.ByteTensor()
+  local A=0
+  xmin2=torch.cmin(D[{{},3}],dswap:fill(d[3]))
+  xmax1=torch.cmax(D[{{},1}],dswap:fill(d[1]))
+  dX=xmin2-xmax1+1
+  dx=torch.cmax(dX,dswap:fill(0))
+  Xfit=dx:ge(0)
+  ymin2=torch.cmin(D[{{},4}],dswap:fill(d[4]))
+  ymax1=torch.cmax(D[{{},2}],dswap:fill(d[2]))
+  dY=ymin2-ymax1+1
+  dy=torch.cmax(dY,dswap:fill(0))
+  Yfit=dy:ge(0)
+  XYfit=torch.cmul(Xfit,Yfit)--Xfit:eq(Yfit)  --XYfit =(Xfit AND Yfit)
   --compute intersectionarea
-  InoU[XYfit]=torch.cmul(dx[XYfit]+1,dy[XYfit]+1) 
-
+  InoU[XYfit]=torch.cmul(dx[XYfit],dy[XYfit]) 
   --compute overlap
-  O[XYfit]=torch.cmul(D[{{},3}][XYfit]-D[{{},1}][XYfit]+1,D[{{},4}][XYfit]-D[{{},2}][XYfit]+1)+math.pow(d[3]-d[1]+1,2)-InoU[XYfit] --compute only overlaps for non-zero intersections
+  O[XYfit]=torch.cmul(D[{{},3}][XYfit]-D[{{},1}][XYfit]+1,D[{{},4}][XYfit]-D[{{},2}][XYfit]+1) --compute only overlaps for non-zero intersections
+  O[XYfit]=torch.add(O[XYfit],-InoU[XYfit]) --compute only overlaps for non-zero intersections
+  A=(d[3]-d[1]+1)*(d[4]-d[2]+1)
+  O[XYfit]=torch.add(O[XYfit],A)  --compute only overlaps for non-zero intersections
+
   InoU[XYfit]=torch.cdiv(InoU[XYfit],O[XYfit])
   return InoU, XYfit
 end
@@ -657,9 +698,10 @@ end
 
 
 function applyCalibNet(model,iim,detections,isize,threshold,ich)
-    if(detections~=nil) then
+    if #(#detections)>0 then
         local iimVec = torch.Tensor(detections:size(1),ich,isize[2],isize[1])
         local detect=torch.Tensor()
+
         for i=1,detections:size(1) do
             detect=detections[{i,{1,4}}]:clone()
             iimVec[i] = cropImage(detect, iim, isize)
@@ -667,14 +709,14 @@ function applyCalibNet(model,iim,detections,isize,threshold,ich)
         local ca1 = torch.exp(model:forward(iimVec:cuda())):double()  -- ca1_(#det x 45 )
         local trans = torch.Tensor(ca1:size(1),3):zero()
         local c = 0
-
+        local maxlbl=0
             for i=1,ca1:size(1) do-- for each detection window 
                 c = 0
-                local maxlbl=torch.max(ca1[i])
+                maxlbl=torch.max(ca1[i])
                 for j=1,ca1:size(2) do -- for all 45 labels
                     if(ca1[i][j] > threshold) then
-                        trans[i] = trans[i] + T[j]
-                        c = c + 1
+                        trans[i] = trans[i] + ca1[i][j]*T[j]--trans[i] + T[j]
+                        c = c + ca1[i][j]--c + 1
                     end
                 end
                 if (c~=0) then --TODO pick a better way of choosing max
@@ -684,8 +726,8 @@ function applyCalibNet(model,iim,detections,isize,threshold,ich)
                 elseif (c == 0) then
                     for j=1,ca1:size(2) do
                         if(ca1[i][j] == maxlbl) then
-                            trans[i] = trans[i] + T[j]
-                            c = c + 1
+                            trans[i] = trans[i] + ca1[i][j]*T[j]--trans[i] + T[j]
+                            c = c + ca1[i][j]--c + 1
                         end
                     end
                     trans[i][1] = trans[i][1]/c
@@ -720,6 +762,7 @@ function applyCalibNet(model,iim,detections,isize,threshold,ich)
             detections[i][4] = y2
         end
     end
+
     return detections
 end
 
@@ -744,7 +787,7 @@ function process()
     threshold3Calib = widget.t9.value/10000
     -- process input at multiple scales    
     im = frame2im(frame,ich)
-    scales,EffNScales=pyramidscales(nscales,network_fov[2],min_size,scratio,frame:size(3),frame:size(2))
+    scales,EffNScales=pyramidscales(nscales,net1_fov[2],min_size,scratio,frame:size(3),frame:size(2))
     if EffNScales<1 then
     goto skip2end
     end
@@ -767,8 +810,8 @@ function process()
     local r = 0
     local numberlevels=0
     for i=1,EffNScales do
-        w = torch.round(network_fov[1]/scales[i])
-        h = torch.round(network_fov[2]/scales[i])
+        w = torch.round(net1_fov[1]/scales[i])
+        h = torch.round(net1_fov[2]/scales[i])
         im1res=image.scale(im1,torch.round(scales[i]*frame:size(3)),torch.round(scales[i]*frame:size(2)),'bicubic')
         im1res=im1res:cuda()
         im1res=(nn.Unsqueeze(1):cuda()):forward(im1res)
@@ -781,6 +824,7 @@ function process()
         xindx=torch.repeatTensor(xindx,heatmap:size(1),1)
         yindx=torch.range(1,heatmap:size(1))-1
         yindx=torch.repeatTensor(yindx,heatmap:size(2),1)
+
         yindx=yindx:t()
         NdetsInScale=torch.sum(Mask)
         if NdetsInScale>0 then
@@ -818,6 +862,7 @@ function process()
     end
     detmsc,numberlevels=KeepPositives(detmsc,threshold1)
     --]]
+
     if numberlevels==0 then
       detections1=nil
       detections2=nil
@@ -836,13 +881,13 @@ function process()
 
     im1c=im:clone()
     im1c=normalize(im1c,stat1calib,ich)
-    for r=1,numberlevels do detmsc[r] = applyCalibNet(calib1, im1c, detmsc[r], FilterSize1, threshold1Calib,ich) end
+    for r=1,numberlevels do detmsc[r] = applyCalibNet(calib1, im1c, detmsc[r], calib1_fov, threshold1Calib,ich) end
 
     print("calib1 done") 
     detections2=(concatdets(detmsc,numberlevels)):clone()
     if numberlevels>0 then
       for r=1,numberlevels do 
-      detmsc[r]=applyNet(net1plain,im1,detmsc[r],network_fov,-1,ich)
+      --detmsc[r]=applyNet(net1plain,im1,detmsc[r],net1_fov,-1,ich)
       detmsc[r],crap = nms(detmsc[r],nmsth1)
       end 
        print("nms1 done") 
@@ -855,7 +900,7 @@ function process()
       im2=normalize(im2,stat2net,ich)
       if numberlevels>0 then
         for r=1,numberlevels do 
-          detmsc[r]=applyNet(net2,im2,detmsc[r],FilterSize2,threshold2,ich)
+          detmsc[r]=applyNet(net2,im2,detmsc[r],net2_fov,threshold2,ich)
           if #(#detmsc[r])>0 then
             rr=rr+1
             detmsc2[rr]=detmsc[r]:clone()
@@ -875,8 +920,6 @@ function process()
     end 
     --detmsc=nil
     rr=nil
-    detections4=(concatdets(detmsc2,numberlevels)):clone()
-    
     if numberlevels==0 then 
       detections4=nil
       detections5=nil
@@ -884,18 +927,18 @@ function process()
       detections7=nil
       detections8=nil
       detections9=nil
-      print_r(detections3)
-      print_r(detmsc2)
-      print_r(detmsc)
-      pause()
       goto skip2end
     end
+
+    detections4=(concatdets(detmsc2,numberlevels)):clone()
+    
+    
     
     
     if threshold2Calib>0 then
     im2c=im:clone()
     im2c=normalize(im2c,stat2calib,ich)
-    for r=1,numberlevels do detmsc2[r] = applyCalibNet(calib2, im2c, detmsc2[r], FilterSize2, threshold2Calib,ich) end
+    for r=1,numberlevels do detmsc2[r] = applyCalibNet(calib2, im2c, detmsc2[r], calib2_fov, threshold2Calib,ich) end
     print("calib2 done") 
     else
     print("calib2 skipped")
@@ -904,7 +947,7 @@ function process()
    if nmsth2<1 then
      if numberlevels>0 then
         for r=1,numberlevels do 
-        detmsc2[r]=applyNet(net2,im2,detmsc2[r],FilterSize2,-1,ich)
+        --detmsc2[r]=applyNet(net2,im2,detmsc2[r],net2_fov,-1,ich)
         detmsc2[r],crap = nms(detmsc2[r],nmsth2)
         end 
          print("nms2 done") 
@@ -917,7 +960,7 @@ function process()
     im3=im:clone()
     im3=normalize(im3,stat3calib,ich)
     detections7=detections6:clone()
-    detections7=applyNet(net3,im3,detections7,FilterSize3,threshold3,ich)
+    detections7=applyNet(net3,im3,detections7,net3_fov,threshold3,ich)
     print('3net done')
     if #(#(detections7))==0 then
       detections7=nil
@@ -932,7 +975,7 @@ function process()
     im3c=im:clone()
     im3c=normalize(im3c,stat3calib,ich)
     detections9=detections8:clone()
-    detections9=applyCalibNet(calib3,im3c,detections9,FilterSize3,threshold3Calib,ich)
+    detections9=applyCalibNet(calib3,im3c,detections9,calib3_fov,threshold3Calib,ich)
     print('calib3 done')
     --detections9=verticalExp(detections9)
     ::skip2end::
@@ -958,7 +1001,12 @@ app_feat = torch.load(net1_path)
 Nmods=#app_feat.modules
 
 app_feat:evaluate()
-print('cnet1 filter')
+if extrastride~=1 then
+  app_feat.modules[4].dH=extrastride
+  app_feat.modules[4].dW=extrastride
+  --network_sub=network_sub*extrastride
+end
+print('net1 filter')
 print(app_feat)
 app_feat=app_feat:cuda()
 net1plain=app_feat:clone()
