@@ -7,6 +7,7 @@ TFNets contains the models, weights, and mean/standard deviation changes for the
 
 # Steps for Torch2tensorflow:
 Torch2caffe (see command below)
+
 	- Commented out line 87 of caffe_layers.py, which adds the -1 to the # of axis for caffe.InnerProduct.
 	- Commented out lines 166 and 167 of caffe_layers.py.
 	- Change line 47 of torch_layers.lua from typename="caffe.LogSoftmax" to typename="caffe.Softmax".
